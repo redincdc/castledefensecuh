@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Castle Defense Cuh — Play</title>
     <link rel="icon" href="../favicon.ico" sizes="any">
-    <link rel="stylesheet" href="style.css?v=5.10">
+    <link rel="stylesheet" href="style.css?v=5.11">
 </head>
 <body>
     <div class="game-container">
@@ -15,7 +15,6 @@
         <div class="game-info">
             <div class="hud-half hud-left">
                 <div class="info-item"><button class="pause-bar" id="pauseBtn">⏸</button></div>
-                <div class="info-item"><div class="info-label">Time</div><div class="info-value" id="score">0:00</div></div>
                 <div class="info-item"><div class="info-label">$</div><div class="info-value"><span id="gold">60</span></div></div>
                 <div class="info-item"><div class="info-label">Round</div><div class="info-value" id="round">1</div></div>
             </div>
@@ -122,6 +121,7 @@
             <h2 id="levelCompleteTitle">Level 1 Complete!</h2>
             <div class="level-complete-stats">
                 <p>Gold Earned: <b id="levelCompleteGold">0</b>g</p>
+                <p>Time: <b id="levelCompleteTime">0:00</b></p>
                 <p id="levelCompleteWaterNotice" style="color: #4CAF50; display: none; margin-top: 6px;">💧 Water 2x Bonus Active!</p>
             </div>
             <div class="level-complete-buttons">
@@ -253,7 +253,7 @@
     <script src="BalanceAnalytics.js"></script>
     <script src="LogManager.js"></script>
     <script src="HeadlessSimulator.js"></script>
-    <script src="game.js?v=5.10"></script>
+    <script src="game.js?v=5.11"></script>
     <script>
         window.CDC_VERSION = '5.10';
         window._cdcCrashSent = false;

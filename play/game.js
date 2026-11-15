@@ -1887,6 +1887,8 @@ class GameScene {
 
             if (titleEl) titleEl.textContent = `Level ${currentLvl} Complete!`;
             if (goldEl) goldEl.textContent = earnedGold;
+            const timeEl = document.getElementById('levelCompleteTime');
+            if (timeEl) timeEl.textContent = this._formatTime(Math.floor(this.realTimeSurvived || 0));
             if (waterEl) waterEl.style.display = this.waterEnabled ? 'block' : 'none';
 
             const doubleBtn = document.getElementById('doubleRewardsBtn');
