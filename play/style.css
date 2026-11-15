@@ -1933,3 +1933,10 @@ button {
 
 .btn-repair { background: #4CAF50 !important; color: white; border: none; border-radius: 4px; }
 .btn-repair:active { background: #388E3C; }
+
+/* v5.16: symmetric top bar, six equal columns, matching button sizes */
+.hud-left, .hud-right { flex: 1 1 0; }
+.hud-half { justify-content: space-between; }
+.game-info .info-item { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.game-info .pause-bar, #pauseBtn { width: 100%; max-width: 46px; }
+.notch-spacer { width: 0; }
