@@ -1740,11 +1740,14 @@ class GameScene {
                     else if (tower.isUpgradingRange) cost = tower.getUpgradeCost('range');
                 }
                 if (tower.cancelUpgrade && tower.cancelUpgrade()) {
+                    // Cancelling turns off this tower's own auto-upgrade (global Upgrade All untouched)
+                    if (tower.autoUpgrade === true) tower.autoUpgrade = false;
                     if (cost > 0) this.gameStateManager.addGold(cost);
                     if (window.logManager) {
                         window.logManager.log(`↩ Canceled upgrade for ${getLogId(tower.type)} (+${cost}g)`, "TOWERS");
                     }
                 }
+                try { this.showTowerPopup(tower); } catch (e) {}
                 if (this.soundManager) this.soundManager.playButtonClick();
             };
         }
