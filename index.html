@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta property="og:title" content="Castle Defense Cuh">
   <meta property="og:description" content="Battle for the Castle. A maze-building tower defense game for Android, now in closed testing.">
-  <meta property="og:image" content="og-preview.png">
+  <meta property="og:image" content="logo.png">
   <meta property="og:type" content="website">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -26,7 +26,7 @@
       <input type="checkbox" id="nav-toggle" class="nav-toggle" hidden>
       <label for="nav-toggle" class="nav-toggle-btn" aria-label="Menu">Menu</label>
       <nav class="nav" aria-label="Primary">
-        <a href="#play">Play</a>
+        <a href="play/">Play</a>
         <a href="#features">Features</a>
         <a href="#screenshots">Screenshots</a>
         <a href="privacy.html">Privacy</a>
@@ -36,17 +36,6 @@
   </header>
 
   <main id="main">
-    <section class="play-embed" id="play">
-      <div class="wrap play-embed-inner">
-        <div class="play-frame-shell">
-          <iframe src="play/" title="Castle Defense Cuh — play in your browser" allow="autoplay; fullscreen; gamepad" loading="eager"></iframe>
-        </div>
-        <div class="play-embed-actions">
-          <a class="btn btn-play" href="play/">Play fullscreen</a>
-        </div>
-      </div>
-    </section>
-
     <section class="hero">
       <div class="wrap hero-grid">
         <div>
@@ -55,11 +44,14 @@
           <p class="tagline">Battle for the Castle.</p>
           <p class="lede">Build a maze, place your towers, and hold the line as enemies pour from the portal. A campaign of 25 levels, a roster of towers and traps, and a boss waiting later in the run.</p>
           <div class="cta-row">
-            <a class="btn btn-play" href="play/">Play fullscreen</a>
+            <a class="btn btn-play" href="play/">Play in browser</a>
             <a class="btn btn-primary" href="https://play.google.com/apps/testing/com.castledefense.cuh">Join the closed test</a>
             <a class="btn btn-ghost" href="https://play.google.com/store/apps/details?id=com.castledefense.cuh">View on Google Play</a>
           </div>
           <p class="fine-print">Play free in your browser, or join closed testing (Alpha) on Google Play. The public store page may not open until you have opted in with a Google account.</p>
+        </div>
+        <div class="phone" aria-hidden="false">
+          <img src="01-maze.webp" alt="A game of Castle Defense Cuh: walls and towers form a maze around the castle as a countdown ticks." width="480" height="920">
         </div>
       </div>
     </section>
