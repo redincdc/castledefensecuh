@@ -1,0 +1,50 @@
+Exactly! As long as you use the exact names listed in the code (case-sensitive, no spaces), the game will automatically find them and swap the shapes for your art.
+Here is a quick "Cheat Sheet" of the exact filenames to use for each image:
+📁 Grid (textures/grid/)
+•
+grass.png
+•
+water.png
+•
+portal.png
+📁 Castle (textures/castle/)
+•
+castle.png
+•
+castle_cannon.png
+📁 Enemies (textures/enemies/)
+•
+normy.png, groupie.png, speedy.png, tank.png, crocodile.png, flyer.png, splitter.png, boss.png
+📁 Buildables (textures/buildables/)
+•
+wall.png, mirror.png, Lilypad.png, spike.png
+📁 Towers (textures/towers/)
+•
+speedy_base.png, speedy_top.png
+•
+tank_base.png, tank_top.png
+•
+sniper_base.png, sniper_top.png
+•
+aa_base.png, aa_top.png
+•
+mortar_base.png, mortar_top.png
+•
+tesla_base.png, tesla_top.png
+•
+upgrader_base.png, upgrader_top.png
+•
+frost_base.png, frost_top.png
+•
+laser_base.png, laser_top.png
+•
+flame_base.png, flame_top.png
+📁 UI Buttons (textures/UI/buttons/)
+•
+pause.png, play.png, restart.png, settings.png, fast_forward.png, upgrade_all.png, continue.png, leaderboard_btn.png
+📁 UI Game Stats (textures/UI/game_stats/)
+•
+gold_icon.png, heart_icon.png, timer_icon.png, round_icon.png, trophy_icon.png
+📁 UI Main Menu (textures/UI/main_menu/)
+•
+menu_background.png, title_logo.png
