@@ -1440,7 +1440,10 @@ class SoundManager {
             }
             return true;
         } catch (e) {
-            console.warn("Background music play failed (awaiting user interaction):", e);
+            const blocked = e && (e.name === 'NotAllowedError' || (typeof e.message === 'string' && e.message.toLowerCase().indexOf('user') !== -1));
+            if (!blocked) {
+                console.warn("Background music play failed (awaiting user interaction)");
+            }
             this.bgMusicAudio = null;
             this.currentMusicPath = null;
             this._attachAutoplayResumeListener();
@@ -1478,17 +1481,25 @@ class SoundManager {
     }
 
     playRandomMusic() {
+        if (!this.musicEnabled) return;
         if (!this.musicTracks || this.musicTracks.length === 0) return;
         const tracks = [...this.musicTracks];
-        // Shuffle to try different tracks if one fails
         tracks.sort(() => Math.random() - 0.5);
 
         const tryPlay = async (index) => {
-            if (index >= tracks.length) return;
-            const success = await this.playMusic(tracks[index]);
-            if (!success) {
-                console.warn(`Music track failed, trying next: ${tracks[index]}`);
-                tryPlay(index + 1);
+            if (index >= tracks.length) {
+                this._attachAutoplayResumeListener();
+                return;
+            }
+            try {
+                const success = await this.playMusic(tracks[index]);
+                if (!success) {
+                    // Autoplay is often blocked until a tap or click.
+                    // Wait for that gesture instead of treating the file as missing.
+                    this._attachAutoplayResumeListener();
+                }
+            } catch (e) {
+                this._attachAutoplayResumeListener();
             }
         };
         tryPlay(0);
