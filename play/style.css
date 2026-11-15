@@ -741,13 +741,11 @@ button {
 }
 
 .main-menu-icon {
-    width: clamp(160px, 28vh, 240px);
-    height: clamp(160px, 28vh, 240px);
+    font-size: clamp(144px, 25vh, 216px);
     margin-bottom: clamp(6px, 1.5vh, 16px);
     filter: drop-shadow(0 0 25px rgba(76, 175, 80, 0.7));
     line-height: 1;
     text-align: center;
-    display: block;
     animation: floatIcon 3s ease-in-out infinite alternate;
 }
 

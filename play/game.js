@@ -1171,7 +1171,11 @@ class GameScene {
                     this.setBlockedMessage("No path from Portal!", x, y);
                     return;
                 }
-                this.beginLevelWithCastle(tile);
+                this.setupCastle(tile);
+                this.placementMode = false;
+                this._entitiesDirty = true;
+                const firstCd = (this.selectedLevel === 10) ? 40 : (this.selectedLevel >= 11 && this.selectedLevel <= 25) ? 30 : 10;
+                this.startCountdown(firstCd, () => this.startNextRound());
             }
             return;
         }
@@ -1341,7 +1345,7 @@ class GameScene {
     }
 
     _hideAllOverlays() {
-        ['mainMenu', 'towerPopup', 'settingsPopup', 'leaderboardPopup', 'gameOverScreen', 'pauseMenu', 'waterPopup', 'confirmModalOverlay', 'levelSelectScreen', 'levelCompleteScreen', 'mockAdOverlay'].forEach(id => {
+        ['towerPopup', 'settingsPopup', 'leaderboardPopup', 'gameOverScreen', 'pauseMenu', 'waterPopup', 'confirmModalOverlay', 'levelSelectScreen', 'levelCompleteScreen', 'mockAdOverlay'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
@@ -2951,49 +2955,6 @@ class GameScene {
         this.start();
         GameLogger.info("Game Restarted (Immediate)");
     }
-
-    beginLevelWithCastle(tile) {
-        if (!tile) return false;
-        this.setupCastle(tile);
-        this.placementMode = false;
-        this._entitiesDirty = true;
-        const level = this.selectedLevel || 1;
-        const firstCd = (level === 10) ? 40 : (level >= 11 && level <= 25) ? 30 : 10;
-        this.startCountdown(firstCd, () => this.startNextRound());
-        return true;
-    }
-
-    autoPlaceDefaultCastle() {
-        if (!this.gridSystem || !this.gridSystem.tiles || !this.gridSystem.pathFinder) return false;
-        const rows = GameConfig.Grid.rows;
-        const cols = GameConfig.Grid.columns;
-        const preferredCol = Math.floor((cols - 2) / 2);
-        const colOffsets = [0, -1, 1, -2, 2, -3, 3, -4, 4];
-        for (let r = rows - 3; r >= 2; r--) {
-            for (let i = 0; i < colOffsets.length; i++) {
-                const c = preferredCol + colOffsets[i];
-                if (c < 0 || c > cols - 2) continue;
-                const tile = this.gridSystem.tiles[r] && this.gridSystem.tiles[r][c];
-                if (!tile || tile.occupied || tile.reserved || tile.water) continue;
-                if (!this.gridSystem.pathFinder.canPlaceCastle(tile, this.towers, this.walls, this.mirrors)) continue;
-                return this.beginLevelWithCastle(tile);
-            }
-        }
-        return false;
-    }
-
-    bootIntoGameplay() {
-        this.selectedLevel = 1;
-        this.waterEnabled = false;
-        this._menuPendingWater = false;
-        this.start();
-        this.autoPlaceDefaultCastle();
-        if (this.render) this.render();
-        if (this.soundManager && typeof this.soundManager._attachAutoplayResumeListener === 'function') {
-            try { this.soundManager._attachAutoplayResumeListener(); } catch (e) {}
-        }
-    }
-
     showMainMenu() {
         const mm = document.getElementById('mainMenu');
         if (mm) mm.style.display = 'flex';
@@ -3441,8 +3402,8 @@ class GameScene {
         });
     }
 
-    renderMainMenuCastleIcon(targetCanvas) {
-        const canvas = targetCanvas || document.getElementById('mainMenuCastleCanvas');
+    renderMainMenuCastleIcon() {
+        const canvas = document.getElementById('mainMenuCastleCanvas');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -3450,11 +3411,9 @@ class GameScene {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         const time = Date.now() * 0.005;
-        const scale = Math.min(canvas.width, canvas.height) / 240;
 
         ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2 + 10 * scale);
-        ctx.scale(scale, scale);
+        ctx.translate(canvas.width / 2, canvas.height / 2 + 10);
 
         // --- 1. Base Wall & Gateway ---
         ctx.fillStyle = '#64748B'; // Slate stone
@@ -3712,7 +3671,8 @@ async function initializeGame() {
     if (!window.gameScene) {
         console.log("Game: Initializing GameScene...");
         const scene = new GameScene(canvas);
-        scene.bootIntoGameplay();
+        scene.showMainMenu();
+        scene.render();
         console.log("Game: Ready.");
     } else {
         window.gameScene.canvas = canvas;
