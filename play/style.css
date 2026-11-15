@@ -47,6 +47,7 @@ body.modal-open {
     width: 100%;
     max-width: 520px; /* Slightly wider to allow for small gaps */
     height: 100vh;
+    height: 100dvh;
     position: relative;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
@@ -60,6 +61,7 @@ body.modal-open {
 /* Browser-specific scaling and centering */
 .is-browser .game-container {
     height: 94vh;
+    height: 94dvh;
     max-width: 480px; /* Dynamically adjusted in JS to match canvas width */
     margin: 1vh auto;
     border-radius: 12px;

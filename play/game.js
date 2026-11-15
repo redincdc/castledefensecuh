@@ -3629,7 +3629,7 @@ async function initializeGame() {
     // Calculate tile size from available width (using 8px padding)
     const tileSizeW = Math.floor((availableWidth - 8) / columns);
     // Height cap: ensure 16 rows leave at least 120px room for top HUD + bottom arsenal
-    const maxTileSizeH = Math.floor((availableHeight - 120) / targetRows);
+    const maxTileSizeH = Math.floor((availableHeight - 200) / targetRows);
 
     const tileSize = Math.max(18, Math.min(tileSizeW, maxTileSizeH));
 
