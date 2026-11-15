@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Castle Defense Cuh — Play</title>
     <link rel="icon" href="../favicon.ico" sizes="any">
-    <link rel="stylesheet" href="style.css?v=5.9">
+    <link rel="stylesheet" href="style.css?v=5.10">
 </head>
 <body>
     <div class="game-container">
@@ -253,23 +253,60 @@
     <script src="BalanceAnalytics.js"></script>
     <script src="LogManager.js"></script>
     <script src="HeadlessSimulator.js"></script>
-    <script src="game.js"></script>
+    <script src="game.js?v=5.10"></script>
     <script>
-        // Global error reporting for automated debugging
-        window.onerror = function(msg, url, line, col, error) {
-            const cleanMsg = msg ? msg.replace('Uncaught ', '').substring(0, 100) : "Unknown Error";
-
+        window.CDC_VERSION = '5.10';
+        window._cdcCrashSent = false;
+        window.cdcSendFeedback = function(payload) {
             if (typeof Android !== 'undefined' && Android.submitFeedback) {
-                const report = {
-                    type: "CRASH",
-                    message: msg,
-                    file: url ? url.split('/').pop() : "unknown",
-                    line: line,
-                    column: col,
-                    stack: error ? error.stack : "N/A"
-                };
-                Android.submitFeedback(JSON.stringify(report));
+                Android.submitFeedback(JSON.stringify(payload));
+                return;
             }
+            fetch("https://formspree.io/f/mkjwjbog", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify(payload)
+            }).then(function(res) {
+                if (window.GameLogger) GameLogger.info("Web bug report sent to Formspree (Status " + res.status + ")");
+            }).catch(function(err) {
+                if (window.GameLogger) GameLogger.warn("Web bug report fetch failed: " + err);
+            });
+        };
+        window.cdcReportCrash = function(type, message, extra) {
+            if (window._cdcCrashSent) return;
+            window._cdcCrashSent = true;
+            var payload;
+            if (window.gameScene && typeof window.gameScene._getReportContext === 'function') {
+                payload = window.gameScene._getReportContext(type, message || '');
+            } else {
+                var plat = (typeof Android !== 'undefined') ? 'android' : 'web';
+                payload = {
+                    message: message || '',
+                    _subject: 'CDC CRASH – L?',
+                    type: type || 'CRASH',
+                    level: 0,
+                    round: 0,
+                    platform: plat,
+                    version: window.CDC_VERSION || '',
+                    time: new Date().toISOString(),
+                    screen: window.innerWidth + 'x' + window.innerHeight,
+                    device: navigator.userAgent
+                };
+            }
+            if (extra) {
+                Object.keys(extra).forEach(function(k) {
+                    if (k !== 'message' && k !== '_subject' && k !== 'type') payload[k] = extra[k];
+                });
+            }
+            window.cdcSendFeedback(payload);
+        };
+        window.onerror = function(msg, url, line, col, error) {
+            window.cdcReportCrash('CRASH', msg || 'Unknown Error', {
+                file: url ? String(url).split('/').pop() : 'unknown',
+                line: line,
+                column: col,
+                stack: error && error.stack ? String(error.stack).slice(0, 1500) : 'N/A'
+            });
             return false;
         };
     </script>

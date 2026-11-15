@@ -677,6 +677,7 @@ class GameScene {
         } catch (e) {
             GameLogger.error("CRITICAL CRASH in gameLoop: " + e.stack);
             this.gameStateManager.isPlaying = false;
+            this.autoSubmitError("CRITICAL CRASH in gameLoop: " + (e.stack || e.message || e));
 
             // Attempt to show error on screen
             if (this.ctx) {
@@ -3076,6 +3077,59 @@ class GameScene {
         if (submitBtn) submitBtn.onclick = () => this._submitBug();
     }
 
+    _getReportContext(type, message) {
+        const gsm = this.gameStateManager || {};
+        const rawRound = gsm.round || 0;
+        const inLevel = !!(this.selectedLevel || this.placementMode || this.isCountingDown || gsm.isPlaying);
+        const round = rawRound > 0 ? rawRound : (inLevel ? 1 : 0);
+        const level = this.selectedLevel || 0;
+        const castleHp = this.castle ? Math.round(this.castle.health) : Math.round(gsm.castleHealth || 0);
+        const platform = (typeof Android !== 'undefined') ? 'android' : 'web';
+        const version = (typeof CDC_VERSION !== 'undefined' && CDC_VERSION) ? CDC_VERSION : (platform === 'android' ? '1.2' : '5.10');
+        const isCrash = (type === 'CRASH' || type === 'AUTO_CRASH');
+        const subject = isCrash
+            ? ('CDC CRASH – L' + (level || '?'))
+            : ('CDC Player Report – L' + (level || '?'));
+        const vv = window.visualViewport;
+        const payload = {
+            message: message || '',
+            _subject: subject,
+            type: type,
+            level: level,
+            round: round,
+            gold: gsm.gold,
+            score: gsm.score,
+            castleHp: castleHp,
+            screen: window.innerWidth + 'x' + window.innerHeight,
+            viewport: vv ? (Math.round(vv.width) + 'x' + Math.round(vv.height)) : (window.innerWidth + 'x' + window.innerHeight),
+            platform: platform,
+            version: version,
+            time: new Date().toISOString(),
+            device: navigator.userAgent
+        };
+        return payload;
+    }
+
+    _sendFeedback(payload) {
+        if (typeof window.cdcSendFeedback === 'function') {
+            window.cdcSendFeedback(payload);
+            return;
+        }
+        if (typeof Android !== 'undefined' && Android.submitFeedback) {
+            Android.submitFeedback(JSON.stringify(payload));
+            return;
+        }
+        fetch("https://formspree.io/f/mkjwjbog", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify(payload)
+        }).then(res => {
+            GameLogger.info("Web bug report sent to Formspree (Status " + res.status + ")");
+        }).catch(err => {
+            GameLogger.warn("Web bug report fetch failed: " + err);
+        });
+    }
+
     _submitBug() {
         const overlay = document.getElementById('bugModalOverlay');
         const msg = document.getElementById('bugMessage');
@@ -3084,32 +3138,9 @@ class GameScene {
 
         if (loader) loader.style.display = 'flex';
 
-        const payload = {
-            message: msg.value.trim(),
-            round: this.gameStateManager.round,
-            gold: this.gameStateManager.gold,
-            score: this.gameStateManager.score,
-            device: navigator.userAgent
-        };
-
-        if (typeof Android !== 'undefined' && Android.submitFeedback) {
-            Android.submitFeedback(JSON.stringify(payload));
-            GameLogger.info('Bug report submitted to native bridge.');
-        } else {
-            // Web browser mode fallback: send directly to Formspree via fetch
-            fetch("https://formspree.io/f/mkjwjbog", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
-                body: JSON.stringify(payload)
-            }).then(res => {
-                GameLogger.info("Web bug report sent to Formspree (Status " + res.status + ")");
-            }).catch(err => {
-                GameLogger.warn("Web bug report fetch failed: " + err);
-            });
-        }
+        const payload = this._getReportContext('USER_REPORT', msg.value.trim());
+        this._sendFeedback(payload);
+        GameLogger.info('Bug report submitted (' + payload.platform + ').');
 
         setTimeout(() => {
             if (loader) loader.style.display = 'none';
@@ -3119,17 +3150,15 @@ class GameScene {
     }
 
     autoSubmitError(errorMsg) {
-        if (typeof Android !== 'undefined' && Android.submitFeedback) {
-            const payload = {
-                type: "AUTO_CRASH",
-                message: errorMsg,
-                round: this.gameStateManager.round,
-                score: this.gameStateManager.score,
-                gold: this.gameStateManager.gold
-            };
-            Android.submitFeedback(JSON.stringify(payload));
+        if (typeof window.cdcReportCrash === 'function') {
+            window.cdcReportCrash('AUTO_CRASH', errorMsg);
+            return;
         }
+        if (window._cdcCrashSent) return;
+        window._cdcCrashSent = true;
+        this._sendFeedback(this._getReportContext('AUTO_CRASH', errorMsg));
     }
+
     submitGlobalScore() {
         const nameInput = document.getElementById('playerNameInput');
         const typedName = nameInput ? nameInput.value.trim() : '';

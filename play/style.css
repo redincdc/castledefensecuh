@@ -95,8 +95,8 @@ body.modal-open {
 }
 
 .notch-spacer {
-    min-width: 24px;
-    width: clamp(24px, 8vw, 60px);
+    min-width: 0;
+    width: 8px;
     flex-shrink: 0;
     height: 1px;
 }
@@ -105,20 +105,29 @@ body.modal-open {
     text-align: center;
     flex: 1;
     min-width: 0;
+    overflow: hidden;
+    padding: 0 2px;
 }
 
 .info-label {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
     color: #111;
     margin-bottom: 1px;
     white-space: nowrap;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0;
+}
+
+.hud-left {
+    flex: 1.35;
+}
+.hud-right {
+    flex: 1;
 }
 
 .info-value {
-    font-size: 19px;
+    font-size: 15px;
     font-weight: 900;
     color: #000;
     display: flex;
@@ -127,6 +136,10 @@ body.modal-open {
     gap: 3px;
     white-space: nowrap;
 }
+#score {
+    font-variant-numeric: tabular-nums;
+}
+
 
 .stat-icon {
     display: inline-block;
