@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Castle Defense Cuh — Play</title>
+    <link rel="icon" href="../favicon.ico" sizes="any">
+    <link rel="stylesheet" href="style.css?v=5.9">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Global Gold Vault Badge (Shown at top left of all menus/screens) -->
+        <div class="global-gold-badge">💰 <span id="globalGoldDisplay">0</span></div>
+        <!-- Main HUD -->
+        <div class="game-info">
+            <div class="hud-half hud-left">
+                <div class="info-item"><button class="pause-bar" id="pauseBtn">⏸</button></div>
+                <div class="info-item"><div class="info-label">Time</div><div class="info-value" id="score">0:00</div></div>
+                <div class="info-item"><div class="info-label">$</div><div class="info-value"><span id="gold">60</span></div></div>
+                <div class="info-item"><div class="info-label">Round</div><div class="info-value" id="round">1</div></div>
+            </div>
+
+            <div class="notch-spacer"></div>
+
+            <div class="hud-half hud-right">
+                <div class="info-item"><div class="info-label">❤️ HP</div><div class="info-value"><span id="castleHealth">100</span></div></div>
+                <div class="info-item"><button class="pause-bar" id="ffBtn">▶▶</button></div>
+                <div class="info-item"><button class="pause-bar" id="upgradeAllHudBtn">⬆All</button></div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Build Menu -->
+        <div class="controls">
+            <div class="tower-btn-wrap"><span class="tower-name">Wall</span><button class="btn-tower" id="wallBtn" data-type="wall"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">5g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Spike</span><button class="btn-tower" id="spikeBtn" data-type="spike"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">10g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Lilypad</span><button class="btn-tower" id="lilypadBtn" data-type="lilypad"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">10g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Mirror</span><button class="btn-tower" id="mirrorBtn" data-type="mirror"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">15g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Frost</span><button class="btn-tower" id="frostTowerBtn" data-type="frost"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">15g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">MG</span><button class="btn-tower" id="fastTowerBtn" data-type="machinegun"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">20g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Cannon</span><button class="btn-tower" id="slowTowerBtn" data-type="cannon"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">20g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">AA</span><button class="btn-tower" id="aaTowerBtn" data-type="aa"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">50g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Buff</span><button class="btn-tower" id="upgraderBtn" data-type="upgrader"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">50g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Mortar</span><button class="btn-tower" id="mortarTowerBtn" data-type="mortar"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">80g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Tesla</span><button class="btn-tower" id="teslaTowerBtn" data-type="tesla"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">90g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Flame</span><button class="btn-tower" id="flameTowerBtn" data-type="flame"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">100g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Sniper</span><button class="btn-tower" id="sniperTowerBtn" data-type="sniper"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">200g</span></div>
+            <div class="tower-btn-wrap"><span class="tower-name">Laser</span><button class="btn-tower" id="laserTowerBtn" data-type="laser"><canvas class="tower-icon-canvas" width="64" height="64"></canvas></button><span class="tower-price">400g</span></div>
+        </div>
+
+        <!-- Overlays -->
+        <div class="main-menu" id="mainMenu">
+            <div class="main-menu-icon">🏰</div>
+            <h1>Castle Defense Cuh</h1>
+            <div class="main-menu-buttons">
+                <button type="button" class="btn-main" id="continueBtn" style="display:none; background: #FF9800;" onclick="if(window.gameScene && window.gameScene.loadGame) window.gameScene.loadGame();">⏯ Continue</button>
+                <button type="button" class="btn-main" id="playBtn" onclick="if(window.gameScene && window.gameScene.onPlayClicked) window.gameScene.onPlayClicked();">▶ New Game</button>
+                <button type="button" class="btn-main" id="settingsBtn" onclick="if(window.gameScene && window.gameScene.openSettingsMenu) window.gameScene.openSettingsMenu();">⚙ Settings</button>
+                <button type="button" class="btn-main" id="leaderboardBtn" style="background: #9C27B0;" onclick="if(window.gameScene && window.gameScene.openLeaderboard) window.gameScene.openLeaderboard();">🏆 Leaderboard</button>
+            </div>
+        </div>
+
+        <div class="level-select-popup" id="levelSelectScreen">
+            <div class="world-header">
+                <button class="world-nav-btn" id="prevWorldBtn">◀</button>
+                <h2 id="worldTitle">World 1: Outskirts</h2>
+                <button class="world-nav-btn" id="nextWorldBtn">▶</button>
+            </div>
+
+            <div class="world-slider" id="worldSlider">
+                <!-- World 1: 5x5 grid (Levels 1-25) -->
+                <div class="world-view" id="world1View">
+                    <div class="level-grid" id="levelGrid1"></div>
+                </div>
+                <!-- World 2: Locked Coming Soon -->
+                <div class="world-view" id="world2View" style="display:none;">
+                    <div class="locked-world-card">
+                        <div class="padlock-icon">🔒</div>
+                        <h3>World 2: Dragon Peaks</h3>
+                        <p class="coming-soon-text">Coming Soon!</p>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-main" id="levelSelectBackBtn" style="background: #607D8B; margin-top: 25px;">Back</button>
+        </div>
+
+        <div class="pause-menu" id="pauseMenu">
+            <h2>⏸ Paused</h2>
+            <button class="btn-main" id="resumeBtn" style="background: #4CAF50;">Resume</button>
+            <button class="btn-main" id="restartBtn" style="background: #2196F3;">Restart</button>
+            <button class="btn-main" id="pauseSettingsBtn" style="background: #607D8B;">Settings</button>
+            <button class="btn-main" id="quitToMenuBtn" style="background: #F44336;">Main Menu</button>
+            <button class="btn-main" id="reportBugBtn" style="background: #FF9800;">🐛 Report Bug</button>
+        </div>
+
+        <div class="game-over-screen" id="gameOverScreen">
+            <h2>💀 Game Over</h2>
+            <div class="game-over-stats">
+                <p>Survived: <b id="finalScore">0:00</b></p>
+                <p>Rounds: <b id="finalRounds">0</b></p>
+                <p id="highScoreDisplay">Best: 0:00</p>
+            </div>
+            <div id="scoreSubmissionArea">
+                <button class="btn-main" id="reviveAdBtn" style="background: #2196F3; margin-bottom: 10px; display: none !important;" hidden>📺 Watch Ad to Revive</button>
+                <input type="text" id="playerNameInput" placeholder="Your Name" maxlength="15">
+                <button class="btn-main" id="submitScoreBtn">Submit Score</button>
+                <div class="btn-row">
+                    <button class="btn-main btn-sub" id="skipSubmissionBtn">Just Play Again</button>
+                    <button class="btn-main btn-sub" id="gameOverMenuBtn">Main Menu</button>
+                </div>
+            </div>
+            <div id="postSubmissionArea" style="display:none;">
+                <div class="submission-status">✅ Score Submitted!</div>
+                <button class="btn-main" id="gameOverRestartBtn" style="background: #4CAF50;">Play Again</button>
+                <button class="btn-main" id="postGameOverMenuBtn" style="background: #607D8B;">Main Menu</button>
+            </div>
+        </div>
+
+        <div class="level-complete-screen" id="levelCompleteScreen">
+            <h2 id="levelCompleteTitle">Level 1 Complete!</h2>
+            <div class="level-complete-stats">
+                <p>Gold Earned: <b id="levelCompleteGold">0</b>g</p>
+                <p id="levelCompleteWaterNotice" style="color: #4CAF50; display: none; margin-top: 6px;">💧 Water 2x Bonus Active!</p>
+            </div>
+            <div class="level-complete-buttons">
+                <button class="btn-main" id="nextLevelBtn" style="background: #4CAF50;">Next Level</button>
+                <button class="btn-main" id="doubleRewardsBtn" style="background: #FF9800; display: none !important;" hidden>📺 Double Rewards</button>
+                <button class="btn-main" id="levelCompleteMenuBtn" style="background: #607D8B;">Main Menu</button>
+            </div>
+        </div>
+
+        <div class="mock-ad-overlay" id="mockAdOverlay" style="display:none !important;" hidden>
+            <div class="mock-ad-content">
+                <button class="mock-ad-close" id="mockAdCloseBtn">✕</button>
+                <div class="mock-ad-banner">
+                    <h3>📺 Sponsored Video Ad</h3>
+                    <p>Watch this ad to claim your reward!</p>
+                    <div class="mock-ad-video-placeholder">Ad Playing (Simulated)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bug-modal-overlay" id="bugModalOverlay">
+            <div class="bug-modal">
+                <h2>🐛 Report a Bug</h2>
+                <textarea id="bugMessage" placeholder="What went wrong?" maxlength="500"></textarea>
+                <div class="bug-modal-actions">
+                    <button class="btn-cancel-bug" id="cancelBugBtn">Cancel</button>
+                    <button class="btn-submit-bug" id="submitBugBtn">Submit</button>
+                </div>
+                <div class="bug-loader" id="bugLoader">
+                    <div class="spinner"></div>
+                    <span style="color:white;">Sending...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="confirm-modal-overlay" id="confirmModalOverlay">
+            <div class="confirm-modal">
+                <h2>Abandon Game?</h2>
+                <div class="confirm-modal-actions">
+                    <button class="btn-confirm-no" id="confirmNoBtn">No</button>
+                    <button class="btn-confirm-yes" id="confirmYesBtn">Yes</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-popup" id="settingsPopup">
+            <h2>Settings</h2>
+            <button class="settings-toggle" id="sfxToggleBtn">SFX: On</button>
+            <button class="settings-toggle" id="musicToggleBtn">Music: Off</button>
+            <button class="settings-toggle" id="vibrateToggleBtn">Vibration: On</button>
+            <button class="btn-main" id="viewLogBtn" style="background: #FF5722;">📋 See Session Log</button>
+            <a href="https://doc-hosting.flycricket.io/castle-defense-cuh-privacy-policy/7766b56f-9260-497d-8b12-1c175f741819/privacy" target="_blank" class="btn-main" style="background: #3F51B5;">🔒 Privacy Policy</a>
+            <button class="btn-main" id="settingsBackBtn" style="background: #607D8B;">Back</button>
+        </div>
+
+        <div class="settings-popup" id="leaderboardPopup">
+            <h2>Leaderboard</h2>
+            <div id="leaderboardList"></div>
+            <button class="btn-main" id="leaderboardBackBtn">Back</button>
+        </div>
+
+        <div class="settings-popup" id="logViewerPopup" style="display: none; flex-direction: column;">
+            <h2>Session Log</h2>
+
+            <!-- Filter Bar -->
+            <div id="logFilterBar" style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; width: 95%; margin-bottom: 10px;">
+                <button class="log-filter-btn active" data-filter="all">All</button>
+                <button class="log-filter-btn" data-filter="errors">Errors</button>
+                <button class="log-filter-btn" data-filter="stats">Stats</button>
+                <button class="log-filter-btn" data-filter="clicks">Clicks</button>
+                <button class="log-filter-btn" data-filter="towers">Towers</button>
+                <button class="log-filter-btn" data-filter="enemy">Enemy</button>
+                <button class="log-filter-btn" data-filter="damage">Damage</button>
+                <button class="log-filter-btn" data-filter="avg">Avg</button>
+                <button class="log-filter-btn" data-filter="ai">AI</button>
+                <button class="log-filter-btn" data-filter="system">System</button>
+            </div>
+
+            <div id="logContentArea" style="flex: 1; width: 90%; background: #000; color: #0f0; font-family: monospace; padding: 10px; overflow-y: auto; text-align: left; font-size: 11px; border-radius: 8px; margin-bottom: 10px; white-space: pre-wrap; word-break: break-all;"></div>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button class="btn-main" id="copyLogBtn" style="background: #4CAF50; min-width: 120px;">Copy to Clipboard</button>
+                <button class="btn-main" id="closeLogBtn" style="background: #607D8B; min-width: 120px;">Back</button>
+            </div>
+        </div>
+
+        <div class="new-high-score" id="newHighScoreMsg">⭐ NEW HIGH SCORE!!! ⭐</div>
+        <div class="round-countdown" id="roundCountdown"></div>
+    </div>
+
+    <!-- Firebase Web SDK (Enables Web Browser Live Firebase Sync) -->
+    <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+    <script src="Core.js"></script>
+    <script src="GameConfig.js"></script>
+    <script src="TextureManager.js"></script>
+    <script src="SoundManager.js"></script>
+    <script src="Engine.js"></script>
+    <script src="GridSystem.js"></script>
+    <script src="Projectile.js"></script>
+    <script src="Portal.js"></script>
+    <script src="Entities.js"></script>
+    <script src="enemies/Enemy.js"></script>
+    <script src="enemies/Normy.js"></script>
+    <script src="enemies/Groupie.js"></script>
+    <script src="enemies/Speedy.js"></script>
+    <script src="enemies/Tank.js"></script>
+    <script src="enemies/Crocodile.js"></script>
+    <script src="enemies/Flyer.js"></script>
+    <script src="enemies/Splitter.js"></script>
+    <script src="enemies/Breaker.js"></script>
+    <script src="towers/Tower.js"></script>
+    <script src="towers/WallTower.js"></script>
+    <script src="towers/SpikeTrap.js"></script>
+    <script src="towers/MirrorTower.js"></script>
+    <script src="towers/LilypadTower.js"></script>
+    <script src="towers/MachineGunTower.js"></script>
+    <script src="towers/CannonTower.js"></script>
+    <script src="towers/SniperTower.js"></script>
+    <script src="towers/AAGunTower.js"></script>
+    <script src="towers/MortarTower.js"></script>
+    <script src="towers/FrostTower.js"></script>
+    <script src="towers/TeslaTower.js"></script>
+    <script src="towers/UpgraderTower.js"></script>
+    <script src="towers/LaserTower.js"></script>
+    <script src="towers/FlameTower.js"></script>
+    <script src="InputManager.js"></script>
+    <script src="BalanceAnalytics.js"></script>
+    <script src="LogManager.js"></script>
+    <script src="HeadlessSimulator.js"></script>
+    <script src="game.js"></script>
+    <script>
+        // Global error reporting for automated debugging
+        window.onerror = function(msg, url, line, col, error) {
+            const cleanMsg = msg ? msg.replace('Uncaught ', '').substring(0, 100) : "Unknown Error";
+
+            if (typeof Android !== 'undefined' && Android.submitFeedback) {
+                const report = {
+                    type: "CRASH",
+                    message: msg,
+                    file: url ? url.split('/').pop() : "unknown",
+                    line: line,
+                    column: col,
+                    stack: error ? error.stack : "N/A"
+                };
+                Android.submitFeedback(JSON.stringify(report));
+            }
+            return false;
+        };
+    </script>
+</body>
+</html>
