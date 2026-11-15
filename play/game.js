@@ -633,12 +633,13 @@ class GameScene {
             this.soundManager.playRandomMusic();
         }
 
+        this.updateBuildButtonLabels();
+        if (typeof layoutPlayfield === 'function') layoutPlayfield();
         this.gridSystem.createGrid();
         this.setupPortal();
         this.gridSystem.generateWater(this.waterEnabled ? 15 : 0);
         this.placementMode = true;
         this.enemiesSpawnedInRound = 0; this.enemiesKilledInRound = 0;
-        this.updateBuildButtonLabels();
         this.gameStateManager.isPlaying = true;
         this.lastTime = performance.now();
         if (!this._rafId) this.gameLoop();
@@ -2424,10 +2425,12 @@ class GameScene {
 
     _layoutArsenal() {
         const controlsEl = document.querySelector('.controls');
-        if (!controlsEl) return;
+        if (!controlsEl) return 1;
 
         if (!this._arsenalResizeBound) {
-            this._arsenalResizeBound = () => this._layoutArsenal();
+            this._arsenalResizeBound = () => {
+                this._layoutArsenal();
+            };
             window.addEventListener('resize', this._arsenalResizeBound);
             if (window.visualViewport) {
                 window.visualViewport.addEventListener('resize', this._arsenalResizeBound);
@@ -2449,17 +2452,11 @@ class GameScene {
         const n = visible.length;
         const width = controlsEl.clientWidth || (controlsEl.parentElement && controlsEl.parentElement.clientWidth) || 280;
         const gapX = 2;
-        const comfortable = 48;
-        const minCell = 36;
-        const maxFit = (cell) => Math.max(1, Math.floor((width + gapX) / (cell + gapX)));
-        const maxComfortable = maxFit(comfortable);
-        const maxMin = maxFit(minCell);
-
+        // 7 per row on phones so L6 (7 towers) stays on one row; 8–14 wrap to a compact second row
         let perRow;
-        if (n <= 0) perRow = 6;
-        else if (n <= maxComfortable) perRow = n; // one centered row when every tower fits at a comfortable size
-        else if (n <= 12) perRow = Math.min(6, maxMin); // phones: ~6 per row, newest wraps under
-        else perRow = maxMin >= 7 ? 7 : Math.min(6, maxMin); // 13–14 towers stay on two rows when 7 fit
+        if (n <= 0) perRow = 7;
+        else if (n <= 7) perRow = n;
+        else perRow = 7;
 
         controlsEl.style.display = 'flex';
         controlsEl.style.flexWrap = 'wrap';
@@ -2468,30 +2465,37 @@ class GameScene {
         controlsEl.style.alignContent = 'center';
         controlsEl.style.gridTemplateColumns = '';
         controlsEl.style.gridTemplateRows = '';
-        controlsEl.style.gap = '4px ' + gapX + 'px';
+        controlsEl.style.gap = '2px ' + gapX + 'px';
 
-        const applyBasis = (count, px) => {
-            const basis = (px != null)
-                ? (px + 'px')
-                : 'calc((100% - ' + ((count - 1) * gapX) + 'px) / ' + count + ')';
-            wraps.forEach(w => {
-                w.style.flex = '0 0 ' + basis;
-                w.style.maxWidth = basis;
-                w.style.width = basis;
-                w.style.boxSizing = 'border-box';
-            });
-        };
-
-        if (n > 0 && n <= maxComfortable) {
-            const cell = Math.min(64, Math.max(minCell, Math.floor((width - (n - 1) * gapX) / n)));
-            applyBasis(n, cell);
-        } else {
-            applyBasis(perRow, null);
-        }
+        const basis = (n > 0 && n <= 7)
+            ? 'calc((100% - ' + ((perRow - 1) * gapX) + 'px) / ' + perRow + ')'
+            : 'calc((100% - ' + ((7 - 1) * gapX) + 'px) / 7)';
+        wraps.forEach(w => {
+            w.style.flex = '0 0 ' + basis;
+            w.style.maxWidth = basis;
+            w.style.width = basis;
+            w.style.boxSizing = 'border-box';
+        });
 
         const rows = n ? Math.ceil(n / perRow) : 1;
         controlsEl.classList.toggle('has-two-rows', rows === 2);
         controlsEl.classList.toggle('has-three-rows', rows >= 3);
+        document.querySelector('.game-container') && document.querySelector('.game-container').classList.toggle('arsenal-compact', true);
+
+        // Shrink label font until the full name fits (no ellipsis)
+        wraps.forEach(w => {
+            if (w.style.display === 'none') return;
+            const name = w.querySelector('.tower-name');
+            if (!name) return;
+            name.style.textOverflow = 'clip';
+            let size = 11;
+            name.style.fontSize = size + 'px';
+            for (let i = 0; i < 10 && size > 6.5 && name.scrollWidth > name.clientWidth + 0.5; i++) {
+                size -= 0.5;
+                name.style.fontSize = size + 'px';
+            }
+        });
+        return rows;
     }
 
     applyUITextures() {
@@ -3541,10 +3545,110 @@ class GameScene {
 }
 
 let _gameInitAttempted = false;
-async function initializeGame() {
-    if (_gameInitAttempted) return;
-    _gameInitAttempted = true;
+let _layoutPlayfieldRunning = false;
 
+function _outerHeight(el) {
+    if (!el) return 0;
+    const r = el.getBoundingClientRect();
+    const s = window.getComputedStyle(el);
+    return r.height + (parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0);
+}
+
+function layoutPlayfield() {
+    if (_layoutPlayfieldRunning) return;
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) return;
+    const container = canvas.parentElement;
+    if (!container) return;
+    _layoutPlayfieldRunning = true;
+    try {
+        const columns = 10;
+        const targetRows = 16;
+        const isAndroid = typeof Android !== 'undefined';
+        if (!isAndroid) document.body.classList.add('is-browser');
+
+        // Use the CSS width (don't keep a previously tightened maxWidth)
+        container.style.maxWidth = '';
+
+        if (window.gameScene && typeof window.gameScene._layoutArsenal === 'function') {
+            window.gameScene._layoutArsenal();
+        }
+
+        const cs = window.getComputedStyle(container);
+        const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+        const contentW = Math.max(0, (container.clientWidth || window.innerWidth) - padX);
+        const contentH = Math.max(0, (container.clientHeight || window.innerHeight) - padY);
+
+        const hud = document.querySelector('.game-info');
+        const controls = document.querySelector('.controls');
+        const canvasStyle = window.getComputedStyle(canvas);
+        const canvasMargins = (parseFloat(canvasStyle.marginTop) || 0) + (parseFloat(canvasStyle.marginBottom) || 0);
+        const canvasBorders = (parseFloat(canvasStyle.borderTopWidth) || 0) + (parseFloat(canvasStyle.borderBottomWidth) || 0);
+        const chromeH = _outerHeight(hud) + _outerHeight(controls) + canvasMargins + canvasBorders;
+        const remainingH = contentH - chromeH;
+
+        const tileSizeW = Math.floor(contentW / columns);
+        const tileSizeH = Math.floor(remainingH / targetRows);
+        const tileSize = Math.max(18, Math.min(tileSizeW, tileSizeH));
+
+        if (window._originalGameConfig) {
+            const base = JSON.parse(JSON.stringify(window._originalGameConfig));
+            for (const key in base) {
+                if (typeof GameConfig[key] === 'object' && GameConfig[key] !== null) Object.assign(GameConfig[key], JSON.parse(JSON.stringify(base[key])));
+                else GameConfig[key] = base[key];
+            }
+        }
+
+        canvas.width = columns * tileSize;
+        canvas.style.width = canvas.width + 'px';
+        canvas.style.margin = '0 auto';
+        canvas.height = targetRows * tileSize;
+        canvas.style.height = canvas.height + 'px';
+
+        // Match HUD / arsenal width to the grid — never leave a wider min-width around a smaller board
+        const aligned = canvas.width + padX;
+        if (!isAndroid) {
+            container.style.maxWidth = aligned + 'px';
+        }
+
+        // Re-flow the arsenal into the new width and re-fit labels
+        if (window.gameScene && typeof window.gameScene._layoutArsenal === 'function') {
+            window.gameScene._layoutArsenal();
+        }
+
+        GameConfig.Grid.columns = columns;
+        GameConfig.Grid.rows = targetRows;
+        GameConfig.Grid.tileSize = tileSize;
+        const scale = tileSize / 64;
+        GameConfig.scale = scale;
+        GameConfig.Castle.size = tileSize * 2;
+        for (const type in GameConfig.Enemy) {
+            GameConfig.Enemy[type].size = Math.round(GameConfig.Enemy[type].size * scale);
+            GameConfig.Enemy[type].speed *= scale;
+        }
+        for (const key in GameConfig.Tower) {
+            if (GameConfig.Tower[key].size) GameConfig.Tower[key].size = tileSize;
+            if (GameConfig.Tower[key].range && GameConfig.Tower[key].range !== Infinity) {
+                GameConfig.Tower[key].range *= scale;
+            }
+            if (GameConfig.Tower[key].minRange) {
+                GameConfig.Tower[key].minRange *= scale;
+            }
+            if (GameConfig.Tower[key].slowRadius) {
+                GameConfig.Tower[key].slowRadius *= scale;
+            }
+            if (GameConfig.Tower[key].splashRadius) {
+                GameConfig.Tower[key].splashRadius *= scale;
+            }
+        }
+        ['Wall', 'Spike', 'Mirror', 'Lilypad'].forEach(k => { if (GameConfig[k]) GameConfig[k].size = tileSize; });
+    } finally {
+        _layoutPlayfieldRunning = false;
+    }
+}
+
+async function initializeGame() {
     console.log("Game: Initializing...");
 
     const canvas = document.getElementById('gameCanvas');
@@ -3552,78 +3656,18 @@ async function initializeGame() {
         console.error("Game: Canvas not found!");
         return;
     }
-    const container = canvas.parentElement;
 
-    if (window._originalGameConfig) {
-        const base = JSON.parse(JSON.stringify(window._originalGameConfig));
-        for (const key in base) {
-            if (typeof GameConfig[key] === 'object' && GameConfig[key] !== null) Object.assign(GameConfig[key], JSON.parse(JSON.stringify(base[key])));
-            else GameConfig[key] = base[key];
-        }
+    if (!_gameInitAttempted) {
+        window.textureManager.preloadTheme().catch(e => console.warn("Background texture preload failed: " + e));
     }
 
-    // Load textures in background without blocking
-    window.textureManager.preloadTheme().catch(e => console.warn("Background texture preload failed: " + e));
-
-    const columns = 10;
-    const targetRows = 16; // Strictly fixed 10x16 grid!
-
-    // Detect environment
-    const isAndroid = typeof Android !== 'undefined';
-    if (!isAndroid) document.body.classList.add('is-browser');
-
-    // Priority 1: Scale grid to match screen width (lock aspect ratio: 10 columns x 16 rows)
-    const availableWidth = container.clientWidth || window.innerWidth;
-    const availableHeight = container.clientHeight || window.innerHeight;
-
-    // Calculate tile size from available width (using 8px padding)
-    const tileSizeW = Math.floor((availableWidth - 8) / columns);
-    // Height cap: HUD + up to two (sometimes three) arsenal rows must stay in the visible viewport
-    const maxTileSizeH = Math.floor((availableHeight - 260) / targetRows);
-
-    const tileSize = Math.max(18, Math.min(tileSizeW, maxTileSizeH));
-
-    canvas.width = columns * tileSize;
-    canvas.style.width = canvas.width + 'px';
-    canvas.style.margin = "0 auto";
-
-    const rows = targetRows; // Strictly 16 rows!
-    canvas.height = rows * tileSize;
-    canvas.style.height = canvas.height + 'px';
-
-    if (!isAndroid) {
-        // Tighten container width on browser to match canvas width
-        container.style.maxWidth = Math.max(300, canvas.width + 16) + 'px';
-    }
-    if (window.gameScene && typeof window.gameScene._layoutArsenal === 'function') {
-        window.gameScene._layoutArsenal();
-    }
-
-    GameConfig.Grid.columns = columns; GameConfig.Grid.rows = rows; GameConfig.Grid.tileSize = tileSize;
-    const scale = tileSize / 64;
-    GameConfig.scale = scale;
-    GameConfig.Castle.size = tileSize * 2;
-    for (const type in GameConfig.Enemy) { GameConfig.Enemy[type].size = Math.round(GameConfig.Enemy[type].size * scale); GameConfig.Enemy[type].speed *= scale; }
-    for (const key in GameConfig.Tower) {
-        if (GameConfig.Tower[key].size) GameConfig.Tower[key].size = tileSize;
-        if (GameConfig.Tower[key].range && GameConfig.Tower[key].range !== Infinity) {
-            GameConfig.Tower[key].range *= scale;
-        }
-        if (GameConfig.Tower[key].minRange) {
-            GameConfig.Tower[key].minRange *= scale;
-        }
-        if (GameConfig.Tower[key].slowRadius) {
-            GameConfig.Tower[key].slowRadius *= scale;
-        }
-        if (GameConfig.Tower[key].splashRadius) {
-            GameConfig.Tower[key].splashRadius *= scale;
-        }
-    }
-    ['Wall', 'Spike', 'Mirror', 'Lilypad'].forEach(k => { if(GameConfig[k]) GameConfig[k].size = tileSize; });
+    layoutPlayfield();
 
     if (!window.gameScene) {
         console.log("Game: Initializing GameScene...");
         const scene = new GameScene(canvas);
+        // Visibility of arsenal buttons is now known — size the grid to the real chrome
+        layoutPlayfield();
         scene.showMainMenu();
         scene.render();
         console.log("Game: Ready.");
@@ -3637,6 +3681,7 @@ async function initializeGame() {
         window.gameScene._entitiesDirty = true;
         window.gameScene.render();
     }
+    _gameInitAttempted = true;
 }
 
 // Reverted to DOMContentLoaded for faster responsiveness
@@ -3648,10 +3693,34 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 
 // Handle window resize dynamically for browser mode
 let resizeTimeout;
-window.addEventListener('resize', function() {
+function _onPlayfieldResize() {
     clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(initializeGame, 150);
-});
+    resizeTimeout = setTimeout(() => {
+        layoutPlayfield();
+        const s = window.gameScene;
+        if (!s) return;
+        const canvas = document.getElementById('gameCanvas');
+        if (canvas) {
+            s.canvas = canvas;
+            s.ctx = canvas.getContext('2d');
+            if (s.gridSystem) {
+                s.gridSystem.canvas = canvas;
+                s.gridSystem.ctx = s.ctx;
+                // Safe to rebuild the board only before a run or during castle placement
+                if (s.placementMode || !s.gameStateManager || !s.gameStateManager.isPlaying) {
+                    try {
+                        s.gridSystem.createGrid();
+                        if (s.setupPortal) s.setupPortal();
+                    } catch (e) {}
+                }
+            }
+        }
+        s._entitiesDirty = true;
+        s.render();
+    }, 150);
+}
+window.addEventListener('resize', _onPlayfieldResize);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', _onPlayfieldResize);
 
-// Ultra-fast fallback
-setTimeout(initializeGame, 1000);
+// Ultra-fast fallback (do not re-init once a scene exists)
+setTimeout(() => { if (!window.gameScene) initializeGame(); }, 1000);

@@ -60,15 +60,23 @@ body.modal-open {
 
 /* Browser-specific scaling and centering */
 .is-browser .game-container {
-    height: 94vh;
-    height: 94dvh;
+    height: 100vh;
+    height: 100dvh;
     max-width: 480px; /* Dynamically adjusted in JS to match canvas width */
-    margin: 1vh auto;
+    margin: 0 auto;
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
     border: 2px solid #555;
-    padding: 6px 8px 10px 8px;
+    padding: 4px 6px 6px 6px;
     box-sizing: border-box;
+}
+@media (min-height: 800px) {
+    .is-browser .game-container {
+        height: 94vh;
+        height: 94dvh;
+        margin: 1vh auto;
+        padding: 6px 8px 10px 8px;
+    }
 }
 
 .game-info {
@@ -169,7 +177,7 @@ body.modal-open {
 
 #gameCanvas {
     display: block;
-    margin: 10px auto 2px auto;
+    margin: 0 auto;
     border: 2px solid #333;
     border-radius: 8px;
     cursor: crosshair;
@@ -223,7 +231,7 @@ body.modal-open {
 }
 
 .tower-name {
-    font-size: clamp(8px, 1.4vh, 12px);
+    font-size: 10px;
     font-family: Arial, sans-serif;
     color: #444;
     font-weight: bold;
@@ -233,7 +241,8 @@ body.modal-open {
     width: 100%;
     overflow: hidden;
     white-space: nowrap;
-    text-overflow: ellipsis;
+    text-overflow: clip;
+    letter-spacing: -0.03em;
 }
 
 .tower-price {
@@ -255,9 +264,9 @@ button {
 }
 
 .btn-tower {
-    height: clamp(34px, 5.5vh, 60px);
-    width: clamp(34px, 5.5vh, 60px);
-    max-width: 95%;
+    height: clamp(26px, 4.8vh, 56px);
+    width: clamp(26px, 4.8vh, 56px);
+    max-width: 100%;
     max-height: 80%;
     aspect-ratio: 1;
     border-radius: 8px;
