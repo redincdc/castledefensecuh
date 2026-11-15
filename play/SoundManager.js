@@ -21,9 +21,16 @@ class SoundManager {
         this.maxFlameVoices = 8;
         this.maxOneShotVoices = 16;
 
-        // Background Music State
-        this.bgMusicAudio = null;
-        this.currentMusicPath = null;
+        // Background Music State — one shared <audio> for the whole page
+        SoundManager._instance = this;
+        this.bgMusicAudio = SoundManager._sharedBgMusic || null;
+        this.currentMusicPath = (this.bgMusicAudio && SoundManager._sharedMusicPath) || null;
+        this._musicPlayToken = 0;
+        this._musicStarting = false;
+        this._musicStartPromise = null;
+        this._musicTimeUpdateBound = null;
+        this._visibilityBound = null;
+        this._attachMusicVisibilityHandler();
         this.musicTracks = [
             'audio/music/better-days.mp3'
         ];
@@ -1300,6 +1307,19 @@ class SoundManager {
 
     // --- Background Music Management with Extended Fade Transitions ---
 
+    _attachMusicVisibilityHandler() {
+        if (this._visibilityBound || !document) return;
+        this._visibilityBound = () => {
+            if (document.hidden) return;
+            if (!this.musicEnabled) return;
+            // Resume the same element only — never allocate a new track
+            if (this.bgMusicAudio && (this.bgMusicAudio.paused || this.bgMusicAudio.ended)) {
+                this.fadeInMusic(800);
+            }
+        };
+        document.addEventListener('visibilitychange', this._visibilityBound);
+    }
+
     _attachAutoplayResumeListener() {
         if (!window) return;
         if (this._autoplayBound) {
@@ -1326,6 +1346,46 @@ class SoundManager {
         window.addEventListener('click', this._autoplayBound, { passive: true });
     }
 
+    _ensureMusicElement() {
+        if (this.bgMusicAudio) return this.bgMusicAudio;
+        if (SoundManager._sharedBgMusic) {
+            this.bgMusicAudio = SoundManager._sharedBgMusic;
+            return this.bgMusicAudio;
+        }
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.loop = false;
+        this._musicTimeUpdateBound = () => this._onMusicTimeUpdate();
+        audio.addEventListener('timeupdate', this._musicTimeUpdateBound);
+        this.bgMusicAudio = audio;
+        SoundManager._sharedBgMusic = audio;
+        return audio;
+    }
+
+    _onMusicTimeUpdate() {
+        const audio = this.bgMusicAudio;
+        if (!audio || !audio.duration) return;
+        const remaining = audio.duration - audio.currentTime;
+
+        // Trigger long fade out during last 6 seconds of the track
+        if (remaining <= 6.0 && !this._nearEndFading && this.musicEnabled) {
+            this._nearEndFading = true;
+            this._fadeVolume(0, 5000);
+        }
+
+        // Loop back to start when track finishes — reuse the same element
+        if (audio.currentTime >= audio.duration - 0.25 || audio.ended) {
+            this._nearEndFading = false;
+            try { audio.currentTime = 0; } catch (e) {}
+            audio.volume = 0;
+            if (this.musicEnabled) {
+                const p = audio.play();
+                if (p && p.catch) p.catch(() => {});
+                this.fadeInMusic(5000);
+            }
+        }
+    }
+
     _fadeVolume(targetVol, durationMs = 4000, onComplete = null) {
         if (this._musicFadeInterval) {
             clearInterval(this._musicFadeInterval);
@@ -1349,12 +1409,12 @@ class SoundManager {
         const steps = durationMs / intervalMs;
         const stepChange = diff / steps;
         let currentStep = 0;
+        const token = this._musicPlayToken;
 
         this._musicFadeInterval = setInterval(() => {
-            if (!this.bgMusicAudio) {
+            if (!this.bgMusicAudio || token !== this._musicPlayToken) {
                 clearInterval(this._musicFadeInterval);
                 this._musicFadeInterval = null;
-                if (onComplete) onComplete();
                 return;
             }
 
@@ -1373,79 +1433,103 @@ class SoundManager {
     }
 
     fadeInMusic(durationMs = 2500) {
-        if (!this.musicEnabled || !this.bgMusicAudio) return;
-        if (this.bgMusicAudio.paused) {
-            this.bgMusicAudio.volume = 0;
-            this.bgMusicAudio.play().catch(() => {
-                this._attachAutoplayResumeListener();
-            });
+        if (!this.musicEnabled) return;
+        const audio = this._ensureMusicElement();
+        if (!audio) return;
+        if (audio.paused || audio.ended) {
+            audio.volume = 0;
+            const p = audio.play();
+            if (p && p.catch) {
+                p.catch(() => {
+                    this._attachAutoplayResumeListener();
+                });
+            }
         }
         this._fadeVolume(0.25, durationMs);
     }
 
     fadeOutMusic(durationMs = 4000, stopAfter = true) {
+        const token = this._musicPlayToken;
         this._fadeVolume(0, durationMs, () => {
-            if (stopAfter) this.stopMusic();
+            if (stopAfter && token === this._musicPlayToken) this.stopMusic();
         });
     }
 
     async playMusic(src, targetVol = 0.25, fadeInMs = 2500) {
-        if (this.currentMusicPath === src && this.bgMusicAudio) {
-            if (this.bgMusicAudio.paused) {
-                this.fadeInMusic(fadeInMs);
-            }
+        if (!this.musicEnabled || !src) return false;
+
+        const audio = this._ensureMusicElement();
+        const alreadyThisTrack = this.currentMusicPath === src && audio;
+        const isActive = alreadyThisTrack && !audio.paused && !audio.ended;
+
+        // Reuse the singleton — never allocate a second element for the same track
+        if (alreadyThisTrack) {
+            if (!isActive) this.fadeInMusic(fadeInMs);
             return true;
         }
 
-        this.stopMusic();
+        if (this._musicStarting) {
+            return this._musicStartPromise || true;
+        }
+
+        this._musicStarting = true;
+        this._musicPlayToken = (this._musicPlayToken || 0) + 1;
+        const token = this._musicPlayToken;
+
+        if (this._musicFadeInterval) {
+            clearInterval(this._musicFadeInterval);
+            this._musicFadeInterval = null;
+        }
+
         this.currentMusicPath = src;
+        SoundManager._sharedMusicPath = src;
 
-        try {
-            const audio = new Audio(encodeURI(src));
-            audio.loop = false; // Manual loop handling for end-of-track fade out / fade in
-            audio.volume = 0; // Start silent for fade-in
-            this.bgMusicAudio = audio;
-            this._nearEndFading = false;
+        const run = async () => {
+            try {
+                // Pause any current playback on the shared element, then (re)load src if needed
+                try {
+                    if (!audio.paused) audio.pause();
+                } catch (e) {}
 
-            // Monitor progress for smooth track-end fade-out and seamless loop fade-in
-            audio.addEventListener('timeupdate', () => {
-                if (!this.bgMusicAudio || !audio.duration) return;
-                const remaining = audio.duration - audio.currentTime;
-
-                // Trigger long fade out during last 6 seconds of the track
-                if (remaining <= 6.0 && !this._nearEndFading && this.musicEnabled) {
-                    this._nearEndFading = true;
-                    this._fadeVolume(0, 5000);
+                const abs = (() => {
+                    try { return new URL(src, document.baseURI || window.location.href).href; }
+                    catch (e) { return src; }
+                })();
+                // audio.src is always absolute; only reload when the track actually changes
+                if (audio.src !== abs && audio.getAttribute('src') !== src) {
+                    audio.src = src;
                 }
+                audio.loop = false;
+                audio.volume = 0;
+                this._nearEndFading = false;
+                try { audio.currentTime = 0; } catch (e) {}
 
-                // Loop back to start when track finishes
-                if (audio.currentTime >= audio.duration - 0.25 || audio.ended) {
-                    this._nearEndFading = false;
-                    audio.currentTime = 0;
-                    audio.volume = 0;
-                    if (this.musicEnabled) {
-                        audio.play().catch(() => {});
-                        this.fadeInMusic(5000);
-                    }
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    await playPromise;
                 }
-            });
-
-            const playPromise = audio.play();
-            if (playPromise !== undefined) {
-                await playPromise;
+                if (token !== this._musicPlayToken) return false;
+                if (this.musicEnabled) {
+                    this.fadeInMusic(fadeInMs);
+                }
+                return true;
+            } catch (e) {
+                console.warn("Background music play failed (awaiting user interaction):", e);
+                try { if (audio && !audio.paused) audio.pause(); } catch (err) {}
+                this.currentMusicPath = src; // keep desired track so a later resume reuses this element
+                SoundManager._sharedMusicPath = src;
+                this._attachAutoplayResumeListener();
+                return false;
+            } finally {
+                if (token === this._musicPlayToken) {
+                    this._musicStarting = false;
+                    this._musicStartPromise = null;
+                }
             }
+        };
 
-            if (this.musicEnabled) {
-                this.fadeInMusic(fadeInMs);
-            }
-            return true;
-        } catch (e) {
-            console.warn("Background music play failed (awaiting user interaction):", e);
-            this.bgMusicAudio = null;
-            this.currentMusicPath = null;
-            this._attachAutoplayResumeListener();
-            return false;
-        }
+        this._musicStartPromise = run();
+        return this._musicStartPromise;
     }
 
     stopMusic() {
@@ -1453,21 +1537,26 @@ class SoundManager {
             clearInterval(this._musicFadeInterval);
             this._musicFadeInterval = null;
         }
-        if (this.bgMusicAudio) {
+        this._musicPlayToken = (this._musicPlayToken || 0) + 1;
+        this._musicStarting = false;
+        this._musicStartPromise = null;
+        const audio = this.bgMusicAudio || SoundManager._sharedBgMusic;
+        if (audio) {
             try {
-                this.bgMusicAudio.pause();
-                this.bgMusicAudio.currentTime = 0;
+                audio.pause();
+                audio.currentTime = 0;
             } catch (e) {}
-            this.bgMusicAudio = null;
+            this.bgMusicAudio = audio; // keep the singleton element
         }
         this.currentMusicPath = null;
+        SoundManager._sharedMusicPath = null;
         this._nearEndFading = false;
     }
 
     updateMusicVolume(enabled) {
         this.musicEnabled = enabled;
         if (enabled) {
-            if (this.bgMusicAudio) {
+            if (this.bgMusicAudio && this.currentMusicPath) {
                 this.fadeInMusic(2500);
             } else {
                 this.playRandomMusic();
@@ -1478,20 +1567,18 @@ class SoundManager {
     }
 
     playRandomMusic() {
+        if (!this.musicEnabled) return;
         if (!this.musicTracks || this.musicTracks.length === 0) return;
-        const tracks = [...this.musicTracks];
-        // Shuffle to try different tracks if one fails
-        tracks.sort(() => Math.random() - 0.5);
-
-        const tryPlay = async (index) => {
-            if (index >= tracks.length) return;
-            const success = await this.playMusic(tracks[index]);
-            if (!success) {
-                console.warn(`Music track failed, trying next: ${tracks[index]}`);
-                tryPlay(index + 1);
-            }
-        };
-        tryPlay(0);
+        // Already playing or a start is in flight — do not create/start another track
+        if (this._musicStarting) return this._musicStartPromise;
+        const audio = this.bgMusicAudio || SoundManager._sharedBgMusic;
+        if (audio && this.currentMusicPath && !audio.paused && !audio.ended) {
+            return;
+        }
+        const src = (this.currentMusicPath && this.musicTracks.indexOf(this.currentMusicPath) >= 0)
+            ? this.currentMusicPath
+            : this.musicTracks[0];
+        return this.playMusic(src);
     }
 
     playButtonClick() {

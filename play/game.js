@@ -2388,191 +2388,110 @@ class GameScene {
 
     updateBuildButtonLabels() {
         const currentLvl = this.selectedLevel || 1;
-        const controlsEl = document.querySelector('.controls');
+        const unlockedFor = (lvl) => {
+            if (lvl === 1) return ['cannon', 'wall'];
+            if (lvl === 2) return ['cannon', 'frost', 'wall'];
+            if (lvl === 3) return ['cannon', 'frost', 'wall', 'machinegun'];
+            if (lvl === 4) return ['cannon', 'frost', 'wall', 'machinegun', 'mortar'];
+            if (lvl === 5) return ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader'];
+            if (lvl === 6) return ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa'];
+            if (lvl === 7) return ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper'];
+            if (lvl === 8 || lvl === 9) return ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike'];
+            if (lvl === 10) return ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike', 'tesla'];
+            if (lvl === 11) return ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike', 'tesla', 'flame'];
+            if (lvl === 12) return ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike', 'tesla', 'flame', 'laser'];
+            if (lvl >= 13 && lvl <= 25) return ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike', 'tesla', 'flame', 'laser', 'mirror'];
+            return null;
+        };
 
-        if (controlsEl) {
-            controlsEl.style.display = 'grid';
-            controlsEl.style.gridTemplateColumns = 'repeat(7, 1fr)';
-            controlsEl.style.gridTemplateRows = 'repeat(2, 1fr)';
-            controlsEl.style.justifyContent = '';
-            controlsEl.style.alignItems = '';
-            controlsEl.style.gap = '';
-        }
-
+        const unlocked = unlockedFor(currentLvl);
         BUILD_BUTTONS.forEach(b => {
             const el = document.getElementById(b.id); if (!el) return;
-            el.parentElement.style.gridRow = '1'; // Top row only
-
-            if (currentLvl === 1) {
-                if (b.type === 'cannon') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '3';
-                } else if (b.type === 'wall') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '5';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 2) {
-                if (b.type === 'cannon') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '3';
-                } else if (b.type === 'frost') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '4';
-                } else if (b.type === 'wall') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '5';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 3) {
-                if (b.type === 'cannon') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '2';
-                } else if (b.type === 'frost') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '3';
-                } else if (b.type === 'wall') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '4';
-                } else if (b.type === 'machinegun') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '5';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 4) {
-                if (b.type === 'cannon') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '2';
-                } else if (b.type === 'frost') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '3';
-                } else if (b.type === 'wall') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '4';
-                } else if (b.type === 'machinegun') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '5';
-                } else if (b.type === 'mortar') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '6';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 5) {
-                if (b.type === 'cannon') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '1';
-                } else if (b.type === 'frost') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '2';
-                } else if (b.type === 'wall') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '3';
-                } else if (b.type === 'machinegun') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '4';
-                } else if (b.type === 'mortar') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '5';
-                } else if (b.type === 'upgrader') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '6';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 6) {
-                if (b.type === 'cannon') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '1';
-                } else if (b.type === 'frost') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '2';
-                } else if (b.type === 'wall') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '3';
-                } else if (b.type === 'machinegun') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '4';
-                } else if (b.type === 'mortar') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '5';
-                } else if (b.type === 'upgrader') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '6';
-                } else if (b.type === 'aa') {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '7';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 7) {
-                const unlockedLvl7 = ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper'];
-                if (unlockedLvl7.includes(b.type)) {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '';
-                    el.parentElement.style.gridRow = '';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 10) {
-                const unlockedLvl10 = ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike', 'tesla'];
-                if (unlockedLvl10.includes(b.type)) {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '';
-                    el.parentElement.style.gridRow = '';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 11) {
-                const unlockedLvl11 = ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike', 'tesla', 'flame'];
-                if (unlockedLvl11.includes(b.type)) {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '';
-                    el.parentElement.style.gridRow = '';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 12) {
-                const unlockedLvl12 = ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike', 'tesla', 'flame', 'laser'];
-                if (unlockedLvl12.includes(b.type)) {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '';
-                    el.parentElement.style.gridRow = '';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl >= 13 && currentLvl <= 25) {
-                const unlockedLvl13 = ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike', 'tesla', 'flame', 'laser', 'mirror'];
-                if (unlockedLvl13.includes(b.type)) {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '';
-                    el.parentElement.style.gridRow = '';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
-            } else if (currentLvl === 8 || currentLvl === 9) {
-                const unlockedLvl8 = ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike'];
-                if (unlockedLvl8.includes(b.type)) {
-                    el.parentElement.style.display = 'flex';
-                    el.parentElement.style.gridColumn = '';
-                    el.parentElement.style.gridRow = '';
-                } else {
-                    el.parentElement.style.display = 'none';
-                }
+            const wrap = el.parentElement;
+            wrap.style.gridColumn = '';
+            wrap.style.gridRow = '';
+            let show;
+            if (unlocked) {
+                show = unlocked.includes(b.type);
             } else {
-                el.parentElement.style.gridColumn = '';
-                el.parentElement.style.gridRow = '';
-                if (b.type === 'lilypad') {
-                    el.parentElement.style.display = this.waterEnabled ? 'flex' : 'none';
-                } else {
-                    el.parentElement.style.display = 'flex';
-                }
+                show = (b.type === 'lilypad') ? !!this.waterEnabled : true;
             }
-            const p = el.parentElement.querySelector('.tower-price'); if (p) p.textContent = b.cost + 'g';
+            wrap.style.display = show ? 'flex' : 'none';
+            const p = wrap.querySelector('.tower-price'); if (p) p.textContent = b.cost + 'g';
         });
+        this._layoutArsenal();
+    }
+
+    _layoutArsenal() {
+        const controlsEl = document.querySelector('.controls');
+        if (!controlsEl) return;
+
+        if (!this._arsenalResizeBound) {
+            this._arsenalResizeBound = () => this._layoutArsenal();
+            window.addEventListener('resize', this._arsenalResizeBound);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', this._arsenalResizeBound);
+            }
+        }
+
+        const unlockOrder = ['cannon', 'frost', 'wall', 'machinegun', 'mortar', 'upgrader', 'aa', 'sniper', 'spike', 'tesla', 'flame', 'laser', 'mirror', 'lilypad'];
+        const wraps = Array.from(controlsEl.querySelectorAll('.tower-btn-wrap'));
+        wraps.forEach(w => {
+            const btn = w.querySelector('button');
+            const def = btn ? BUILD_BUTTONS.find(b => b.id === btn.id) : null;
+            const idx = def ? unlockOrder.indexOf(def.type) : 99;
+            w.style.order = String(idx < 0 ? 99 : idx);
+            w.style.gridColumn = '';
+            w.style.gridRow = '';
+        });
+
+        const visible = wraps.filter(w => w.style.display !== 'none');
+        const n = visible.length;
+        const width = controlsEl.clientWidth || (controlsEl.parentElement && controlsEl.parentElement.clientWidth) || 280;
+        const gapX = 2;
+        const comfortable = 48;
+        const minCell = 36;
+        const maxFit = (cell) => Math.max(1, Math.floor((width + gapX) / (cell + gapX)));
+        const maxComfortable = maxFit(comfortable);
+        const maxMin = maxFit(minCell);
+
+        let perRow;
+        if (n <= 0) perRow = 6;
+        else if (n <= maxComfortable) perRow = n; // one centered row when every tower fits at a comfortable size
+        else if (n <= 12) perRow = Math.min(6, maxMin); // phones: ~6 per row, newest wraps under
+        else perRow = maxMin >= 7 ? 7 : Math.min(6, maxMin); // 13–14 towers stay on two rows when 7 fit
+
+        controlsEl.style.display = 'flex';
+        controlsEl.style.flexWrap = 'wrap';
+        controlsEl.style.justifyContent = 'center';
+        controlsEl.style.alignItems = 'center';
+        controlsEl.style.alignContent = 'center';
+        controlsEl.style.gridTemplateColumns = '';
+        controlsEl.style.gridTemplateRows = '';
+        controlsEl.style.gap = '4px ' + gapX + 'px';
+
+        const applyBasis = (count, px) => {
+            const basis = (px != null)
+                ? (px + 'px')
+                : 'calc((100% - ' + ((count - 1) * gapX) + 'px) / ' + count + ')';
+            wraps.forEach(w => {
+                w.style.flex = '0 0 ' + basis;
+                w.style.maxWidth = basis;
+                w.style.width = basis;
+                w.style.boxSizing = 'border-box';
+            });
+        };
+
+        if (n > 0 && n <= maxComfortable) {
+            const cell = Math.min(64, Math.max(minCell, Math.floor((width - (n - 1) * gapX) / n)));
+            applyBasis(n, cell);
+        } else {
+            applyBasis(perRow, null);
+        }
+
+        const rows = n ? Math.ceil(n / perRow) : 1;
+        controlsEl.classList.toggle('has-two-rows', rows === 2);
+        controlsEl.classList.toggle('has-three-rows', rows >= 3);
     }
 
     applyUITextures() {
@@ -3659,8 +3578,8 @@ async function initializeGame() {
 
     // Calculate tile size from available width (using 8px padding)
     const tileSizeW = Math.floor((availableWidth - 8) / columns);
-    // Height cap: ensure 16 rows leave at least 120px room for top HUD + bottom arsenal
-    const maxTileSizeH = Math.floor((availableHeight - 200) / targetRows);
+    // Height cap: HUD + up to two (sometimes three) arsenal rows must stay in the visible viewport
+    const maxTileSizeH = Math.floor((availableHeight - 260) / targetRows);
 
     const tileSize = Math.max(18, Math.min(tileSizeW, maxTileSizeH));
 
@@ -3675,6 +3594,9 @@ async function initializeGame() {
     if (!isAndroid) {
         // Tighten container width on browser to match canvas width
         container.style.maxWidth = Math.max(300, canvas.width + 16) + 'px';
+    }
+    if (window.gameScene && typeof window.gameScene._layoutArsenal === 'function') {
+        window.gameScene._layoutArsenal();
     }
 
     GameConfig.Grid.columns = columns; GameConfig.Grid.rows = rows; GameConfig.Grid.tileSize = tileSize;
