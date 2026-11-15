@@ -139,14 +139,51 @@ a:hover { color: #ffe08a; }
   .header-inner { position: relative; }
 }
 
+/* ----- live game embed ----- */
+.play-embed {
+  position: relative;
+  overflow: hidden;
+  padding: 1.2rem 0 0.5rem;
+  background:
+    linear-gradient(180deg, rgba(16,24,16,0.15), var(--bg) 92%),
+    repeating-conic-gradient(#245c28 0% 25%, #1c4a20 0% 50%) 0 0 / 48px 48px;
+}
+.play-embed-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+.play-frame-shell {
+  width: min(100%, 430px);
+  height: min(86vh, 840px);
+  background: #1a1a1a;
+  border: 3px solid #3a3a3a;
+  border-radius: 28px;
+  padding: 10px 8px 12px;
+  box-shadow: var(--shadow), 0 0 0 1px #111;
+  overflow: hidden;
+}
+.play-frame-shell iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 16px;
+  background: #101810;
+  display: block;
+}
+.play-embed-actions {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 0.4rem;
+}
+
 /* ----- hero ----- */
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 2.4rem 0 3.2rem;
-  background:
-    linear-gradient(180deg, rgba(16,24,16,0.2), var(--bg) 92%),
-    repeating-conic-gradient(#245c28 0% 25%, #1c4a20 0% 50%) 0 0 / 48px 48px;
+  padding: 1.6rem 0 3.2rem;
+  background: transparent;
 }
 .hero::before {
   content: "";
@@ -162,7 +199,7 @@ a:hover { color: #ffe08a; }
   align-items: center;
 }
 @media (min-width: 840px) {
-  .hero-grid { grid-template-columns: 1.1fr 0.9fr; }
+  .hero-grid { grid-template-columns: 1fr; max-width: 44rem; }
 }
 .eyebrow {
   display: inline-block;
@@ -218,6 +255,14 @@ a:hover { color: #ffe08a; }
 }
 .btn-primary { background: var(--grass); color: #081208; }
 .btn-primary:hover { background: #5cbf60; color: #081208; }
+.btn-play {
+  background: var(--gold);
+  color: #101810;
+  box-shadow: 0 8px 24px rgba(230, 193, 90, 0.38);
+  font-size: 1.08rem;
+  padding: 0.9rem 1.45rem;
+}
+.btn-play:hover { background: #ffe08a; color: #101810; }
 .btn-ghost {
   background: transparent;
   color: var(--ink);
