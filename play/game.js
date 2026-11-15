@@ -1205,7 +1205,12 @@ class GameScene {
                 }
             }
         } else {
-            if (this.selectedTower) this.deselectTower();
+            // A tap on the map while a tower menu is open only closes the menu
+            if (this.selectedTower || this._switchTimeoutID) {
+                if (this._switchTimeoutID) { clearTimeout(this._switchTimeoutID); this._switchTimeoutID = null; }
+                if (this.selectedTower) this.deselectTower();
+                return;
+            }
             this.handleTileClick(x, y);
         }
     }
