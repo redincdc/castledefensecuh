@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Castle Defense Cuh — Play</title>
     <link rel="icon" href="../favicon.ico" sizes="any">
-    <link rel="stylesheet" href="style.css?v=5.16">
+    <link rel="stylesheet" href="style.css?v=5.17">
 </head>
 <body>
     <div class="game-container">
@@ -57,6 +57,7 @@
                 <button type="button" class="btn-main" id="playBtn" onclick="if(window.gameScene && window.gameScene.onPlayClicked) window.gameScene.onPlayClicked();">▶ New Game</button>
                 <button type="button" class="btn-main" id="settingsBtn" onclick="if(window.gameScene && window.gameScene.openSettingsMenu) window.gameScene.openSettingsMenu();">⚙ Settings</button>
                 <button type="button" class="btn-main" id="leaderboardBtn" style="background: #9C27B0;" onclick="if(window.gameScene && window.gameScene.openLeaderboard) window.gameScene.openLeaderboard();">🏆 Leaderboard</button>
+                <a class="btn-main btn-donate" id="donateMenuBtn" href="https://www.paypal.com/qrcodes/p2pqrc/G3XKKF968JUTC" target="_blank" rel="noopener">☕ Donate</a>
             </div>
         </div>
 
@@ -115,6 +116,7 @@
                 <button class="btn-main" id="gameOverRestartBtn" style="background: #4CAF50;">Play Again</button>
                 <button class="btn-main" id="postGameOverMenuBtn" style="background: #607D8B;">Main Menu</button>
             </div>
+            <a class="btn-main btn-donate" id="donateGameOverBtn" href="https://www.paypal.com/qrcodes/p2pqrc/G3XKKF968JUTC" target="_blank" rel="noopener">☕ Donate</a>
         </div>
 
         <div class="level-complete-screen" id="levelCompleteScreen">
@@ -128,6 +130,7 @@
                 <button class="btn-main" id="nextLevelBtn" style="background: #4CAF50;">Next Level</button>
                 <button class="btn-main" id="doubleRewardsBtn" style="background: #FF9800; display: none !important;" hidden>📺 Double Rewards</button>
                 <button class="btn-main" id="levelCompleteMenuBtn" style="background: #607D8B;">Main Menu</button>
+                <a class="btn-main btn-donate" id="donateLevelCompleteBtn" href="https://www.paypal.com/qrcodes/p2pqrc/G3XKKF968JUTC" target="_blank" rel="noopener">☕ Donate</a>
             </div>
         </div>
 
@@ -219,7 +222,7 @@
     <script src="Core.js"></script>
     <script src="GameConfig.js"></script>
     <script src="TextureManager.js"></script>
-    <script src="SoundManager.js?v=5.16"></script>
+    <script src="SoundManager.js?v=5.17"></script>
     <script src="Engine.js"></script>
     <script src="GridSystem.js"></script>
     <script src="Projectile.js"></script>
@@ -253,9 +256,9 @@
     <script src="BalanceAnalytics.js"></script>
     <script src="LogManager.js"></script>
     <script src="HeadlessSimulator.js"></script>
-    <script src="game.js?v=5.16"></script>
+    <script src="game.js?v=5.17"></script>
     <script>
-        window.CDC_VERSION = '5.16';
+        window.CDC_VERSION = '5.17';
         window._cdcCrashSent = false;
         window.cdcSendFeedback = function(payload) {
             if (typeof Android !== 'undefined' && Android.submitFeedback) {

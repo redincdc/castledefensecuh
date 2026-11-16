@@ -1940,3 +1940,29 @@ button {
 .game-info .info-item { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .game-info .pause-bar, #pauseBtn { width: 100%; max-width: 46px; }
 .notch-spacer { width: 0; }
+
+/* v5.17: compact PayPal donate button on menu, game over, and level complete */
+a.btn-donate {
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    background: #C17A2F;
+    width: clamp(180px, 75%, 240px);
+    padding: clamp(8px, 1.4vh, 12px) 14px;
+    font-size: clamp(14px, 2vh, 17px);
+    flex-shrink: 0;
+}
+a.btn-donate:hover {
+    background: #A86828;
+}
+a.btn-donate:active {
+    background: #8F5722 !important;
+}
+.game-over-screen .btn-donate,
+.level-complete-buttons .btn-donate {
+    margin-top: 4px;
+    width: clamp(160px, 70%, 220px);
+    max-width: 100%;
+}
