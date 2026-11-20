@@ -227,7 +227,7 @@ class Tower extends BuildableEntity {
         this.upgradeProgress = 0;
         window.gameScene?.updateLaserPaths?.();
         if (this.isLaser) {
-            window.gameScene?.soundManager?.playLaserReadySynth();
+            window.gameScene?.soundManager?.playUpgradeComplete(); // v5.19: lightsaber plays once on build only
         } else {
             window.gameScene?.soundManager?.playUpgradeComplete();
         }
