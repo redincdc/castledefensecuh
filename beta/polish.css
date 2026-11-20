@@ -1,0 +1,133 @@
+/* ===== Castle Defense Cuh v5.18 polish ===== */
+
+/* ---- Shared: HUD readability (portrait too) ---- */
+.hud-brand { display: none; }
+.game-info .info-label { font-size: 11px; letter-spacing: 0.02em; color: #1b1b1b; }
+.game-info .info-value { font-size: 17px; font-variant-numeric: tabular-nums; }
+.round-total { font-size: 0.72em; opacity: 0.65; font-weight: 800; margin-left: 1px; }
+.stat-gold .info-value { color: #7a5200; }
+.stat-hp .info-value { color: #b71c1c; }
+.stat-gold.tick-up .info-value { animation: cdcTickUp 0.45s ease-out; }
+.stat-gold.tick-down .info-value { animation: cdcTickDown 0.35s ease-out; }
+@keyframes cdcTickUp { 0% { transform: scale(1); } 35% { transform: scale(1.28); color: #2e7d32; text-shadow: 0 0 8px rgba(255,215,0,0.9); } 100% { transform: scale(1); } }
+@keyframes cdcTickDown { 0% { transform: scale(1); } 35% { transform: scale(0.9); color: #c62828; } 100% { transform: scale(1); } }
+#gameCanvas { transition: none; will-change: transform; }
+
+/* ---- Main menu hierarchy ---- */
+.main-menu h1 { white-space: nowrap; font-size: clamp(20px, min(5.5vh, 7.4vw), 40px); }
+#playBtn { font-size: clamp(18px, 2.8vh, 24px); padding: clamp(12px, 2.2vh, 18px) 16px; box-shadow: 0 6px 22px rgba(76,175,80,0.45); width: clamp(200px, 80%, 280px); }
+.menu-sub-row { display: flex; gap: 10px; width: clamp(200px, 80%, 280px); }
+.menu-sub-row .btn-main { flex: 1 1 0; width: auto; min-width: 0; padding: clamp(8px, 1.4vh, 12px) 8px; font-size: clamp(13px, 1.9vh, 16px); background: #455A64 !important; }
+.btn-link { background: none; border: none; color: #b8d8c0; font-size: clamp(13px, 1.9vh, 15px); padding: 4px 10px; text-decoration: underline; text-underline-offset: 3px; }
+.btn-link:hover { color: #fff; }
+.main-menu a.btn-donate { width: auto; padding: 6px 16px; font-size: 14px; opacity: 0.9; background: rgba(193,122,47,0.85); }
+
+/* ---- Game over hierarchy: Play Again is the primary CTA ---- */
+.btn-primary-cta { background: #43A047 !important; font-size: clamp(18px, 2.8vh, 22px) !important; padding: clamp(12px, 2vh, 16px) 16px !important; box-shadow: 0 6px 22px rgba(76,175,80,0.45); }
+.btn-sub-full { width: 100% !important; flex: none !important; }
+.score-submit-row { display: flex; gap: 8px; width: 100%; margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.12); }
+.score-submit-row #playerNameInput { flex: 1 1 auto; min-width: 0; padding: 8px; font-size: 14px; border-width: 1.5px; }
+#scoreSubmissionArea .score-submit-row #submitScoreBtn { flex: 0 0 auto; width: auto !important; padding: 8px 12px; font-size: 13px; background: #546E7A; }
+#highScoreDisplay { color: #FFD54F; font-weight: 700; }
+
+/* ---- Tutorial coach ---- */
+.cdc-coach { position: absolute; z-index: 9000; left: 50%; top: 78px; transform: translateX(-50%); width: min(92%, 440px); display: none; flex-direction: column; gap: 8px;
+  background: rgba(20, 28, 22, 0.94); color: #fff; border: 2px solid #FFD54F; border-radius: 14px; padding: 12px 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+  font-size: clamp(13px, 2vh, 16px); line-height: 1.35; animation: cdcCoachIn 0.3s ease-out; pointer-events: auto; }
+.cdc-coach b { color: #FFD54F; }
+.cdc-coach-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.cdc-coach button { padding: 6px 12px; font-size: 13px; border-radius: 8px; }
+.cdc-coach-next { background: #43A047; color: #fff; }
+.cdc-coach-skip { background: transparent; color: #cfd8dc; border: 1px solid rgba(255,255,255,0.3) !important; }
+.cdc-coach-ring { position: absolute; z-index: 8999; display: none; pointer-events: none; border: 3px solid #FFD54F; border-radius: 12px; box-shadow: 0 0 0 4px rgba(255,213,79,0.25), 0 0 18px rgba(255,213,79,0.8); animation: cdcRing 1s ease-in-out infinite; }
+@keyframes cdcRing { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: 0.7; } }
+@keyframes cdcCoachIn { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* =====================================================
+   Wide / 16:9 layout: HUD panel | board | arsenal panel
+   ===================================================== */
+body.cdc-wide { background: radial-gradient(ellipse at 50% 35%, #33643f 0%, #1d3a28 55%, #0f2017 100%); align-items: stretch; }
+body.cdc-wide .game-container,
+body.cdc-wide.is-browser .game-container {
+  max-width: none !important; width: 100vw; height: 100vh; height: 100dvh; margin: 0 !important;
+  border: none; border-radius: 0; box-shadow: none; background: transparent;
+  padding: max(8px, 1.6vh) max(10px, 1.4vw) !important;
+  display: grid; grid-template-columns: var(--cdc-side-w, 220px) minmax(0, 1fr) var(--cdc-side-w, 220px); grid-template-rows: minmax(0, 1fr);
+  column-gap: 12px; align-items: center;
+}
+body.cdc-wide #gameCanvas { grid-column: 2; grid-row: 1; justify-self: center; align-self: center; border: 3px solid #2b1d0e; border-radius: 10px;
+  box-shadow: 0 0 0 4px #7a5a33, 0 0 0 7px #3d2a14, 0 14px 40px rgba(0,0,0,0.55); }
+
+/* Left HUD panel */
+body.cdc-wide .game-info { grid-column: 1; grid-row: 1; align-self: center; margin: 0; min-height: 0; width: 100%;
+  display: flex; flex-direction: row; flex-wrap: wrap; align-content: flex-start; gap: 8px;
+  background: linear-gradient(180deg, rgba(25,35,28,0.92), rgba(15,22,17,0.92)); border: 2px solid rgba(255,213,79,0.35); border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+body.cdc-wide .hud-half, body.cdc-wide .notch-spacer { display: contents; }
+body.cdc-wide .hud-brand { display: flex; flex-direction: column; align-items: center; width: 100%; order: 0; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.12); margin-bottom: 2px; }
+body.cdc-wide .hud-brand-name { color: #8fd694; font-weight: 900; font-size: clamp(12px, 2.4vh, 17px); white-space: nowrap; }
+body.cdc-wide .hud-level { color: #FFD54F; font-weight: 800; font-size: clamp(14px, 3vh, 22px); }
+body.cdc-wide .game-info .info-item.info-stat { order: 1; flex: 0 0 100%; flex-direction: row; justify-content: space-between; align-items: center;
+  background: rgba(255,255,255,0.06); border-radius: 10px; padding: clamp(4px, 1.1vh, 10px) 12px; }
+body.cdc-wide .game-info .info-label { color: #cfd8dc; font-size: clamp(12px, 2.3vh, 16px); margin: 0; }
+body.cdc-wide .game-info .info-value { color: #fff; font-size: clamp(18px, 4.2vh, 30px); }
+body.cdc-wide .stat-gold .info-value { color: #FFD54F; }
+body.cdc-wide .stat-hp .info-value { color: #FF8A80; }
+body.cdc-wide .game-info .info-item.info-btn { order: 2; flex: 1 1 0; min-width: 0; }
+body.cdc-wide .game-info .pause-bar, body.cdc-wide #pauseBtn { max-width: none; width: 100%; height: clamp(32px, 7vh, 48px); font-size: clamp(13px, 2.4vh, 17px); }
+
+/* Right arsenal panel */
+body.cdc-wide .controls { grid-column: 3; grid-row: 1; align-self: center; margin: 0; max-height: 100%; overflow-y: auto;
+  background: linear-gradient(180deg, rgba(25,35,28,0.92), rgba(15,22,17,0.92)); border: 2px solid rgba(255,213,79,0.35); border-radius: 14px;
+  padding: 10px 8px !important; row-gap: 8px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+body.cdc-wide .controls::before { content: 'BUILD'; display: block; flex: 0 0 100%; text-align: center; color: #8fd694; font-weight: 900; letter-spacing: 0.15em; font-size: clamp(11px, 2vh, 14px); margin-bottom: 2px; }
+body.cdc-wide .controls::after { display: none !important; }
+body.cdc-wide .tower-name { color: #e0e0e0; }
+body.cdc-wide .tower-price { color: #FFD54F; font-size: clamp(11px, 2vh, 14px); }
+body.cdc-wide .btn-tower { width: clamp(34px, 8.4vh, 64px); height: clamp(34px, 8.4vh, 64px); background: #2f3b33; border-color: #56685b; }
+body.cdc-wide .btn-tower.selected { background: #4d6b53; border-color: #FFD54F; box-shadow: 0 0 0 2px #FFD54F, 0 0 14px rgba(255,213,79,0.6); }
+
+/* Overlays fill the whole window in wide mode */
+body.cdc-wide .main-menu { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto 1fr; column-gap: 4vw; align-items: center; justify-items: center;
+  background: radial-gradient(ellipse at 30% 40%, #284a35 0%, #14261c 60%, #0b1610 100%); border-radius: 0; }
+body.cdc-wide .main-menu[style*="display: none"] { display: none !important; }
+body.cdc-wide .main-menu-icon { grid-column: 1; grid-row: 1; align-self: end; font-size: clamp(90px, 30vh, 230px); margin: 0; }
+body.cdc-wide .main-menu h1 { grid-column: 1; grid-row: 2; font-size: clamp(22px, 6.5vh, 52px); margin: 1vh 0 0; }
+body.cdc-wide .main-menu-buttons { grid-column: 2; grid-row: 1 / span 3; align-self: center; justify-self: start; align-items: flex-start; width: auto; gap: clamp(8px, 2vh, 16px); }
+body.cdc-wide .main-menu-buttons .btn-main:not(.btn-donate), body.cdc-wide .menu-sub-row { width: clamp(220px, 30vw, 340px); }
+body.cdc-wide .main-menu-buttons .btn-link { align-self: flex-start; padding-left: 2px; }
+body.cdc-wide .level-select-popup, body.cdc-wide .pause-menu, body.cdc-wide .game-over-screen, body.cdc-wide .level-complete-screen, body.cdc-wide .settings-popup { border-radius: 0; }
+body.cdc-wide .game-over-screen { justify-content: center; padding-top: 2vh; }
+body.cdc-wide .tower-popup { max-width: min(420px, 46vw); }
+
+/* Tutorial coach sits in the left panel area in wide mode (keeps the board clear) */
+body.cdc-wide .cdc-coach { left: auto; right: max(10px, 1.4vw); top: auto; bottom: max(8px, 1.6vh); transform: none; width: var(--cdc-side-w, 220px); font-size: clamp(12px, 2.2vh, 15px); animation: none; }
+@media (max-height: 520px) { body.cdc-wide .game-info { gap: 5px; padding: 8px; } body.cdc-wide .hud-brand-name { display: none; } }
+
+#cdcBackdrop { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; display: none; }
+body.cdc-wide .game-container { position: relative; z-index: 1; }
+/* main menu covers the backdrop with its own art */
+#scoreSubmissionArea .btn-primary-cta, #scoreSubmissionArea .btn-sub-full { width: 100% !important; max-width: 320px !important; box-sizing: border-box; }
+body.cdc-wide #playBtn, body.cdc-wide #continueBtn, body.cdc-wide #levelSelectMenuBtn, body.cdc-wide .menu-sub-row { width: clamp(220px, 30vw, 320px) !important; }
+
+/* v5.19: volume sliders, Ideas button, drag ghost */
+.settings-slider { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 320px; box-sizing: border-box; color: #fff; font-weight: 700;
+  background: rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 14px; margin: 4px 0; font-size: 15px; }
+.settings-slider span { flex: 0 0 auto; min-width: 92px; text-align: left; }
+.settings-slider input[type=range] { flex: 1 1 auto; min-width: 0; accent-color: #FFD54F; height: 26px; cursor: pointer; }
+.settings-slider b { flex: 0 0 44px; text-align: right; color: #FFD54F; }
+#ideaBtn { margin-top: 6px; }
+.cdc-drag-ghost { position: fixed; left: 0; top: 0; width: 48px; height: 48px; pointer-events: none; z-index: 9999; opacity: 0.85;
+  background-size: contain; background-repeat: no-repeat; background-position: center; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
+body.cdc-dragging, body.cdc-dragging * { cursor: grabbing !important; }
+.btn-tower { touch-action: manipulation; -webkit-user-drag: none; user-select: none; }
+
+/* v5.20: Tutorial / Endless mode buttons */
+.main-menu-buttons .btn-mode { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 72px; padding: 10px 16px; line-height: 1.1; }
+.btn-mode .mode-title { font-size: clamp(20px, 4.4vh, 30px); font-weight: 900; }
+.btn-mode .mode-sub { font-size: clamp(11px, 2vh, 14px); font-weight: 600; opacity: 0.9; }
+.btn-mode-tutorial { background: linear-gradient(180deg, #43A047, #2E7D32) !important; }
+.btn-mode-endless { background: linear-gradient(180deg, #7E57C2, #512DA8) !important; }
+.btn-mode.cdc-nudge { animation: cdcNudge 1.6s ease-in-out infinite; box-shadow: 0 0 0 3px #FFD54F, 0 0 18px rgba(255,213,79,0.7); }
+@keyframes cdcNudge { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+.mode-hint { color: #FFD54F; font-weight: 800; font-size: clamp(12px, 2.2vh, 15px); min-height: 1em; }
+.cdc-stage-coach .cdc-coach-text { line-height: 1.45; }
