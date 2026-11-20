@@ -20,6 +20,7 @@ class GameScene {
             try { this.gridSystem = new GridSystem(canvas); } catch (e) { console.warn("GridSystem init:", e); }
             try { this.inputManager = new InputManager(this); } catch (e) { console.warn("InputManager init:", e); }
             try { this.soundManager = new SoundManager(); } catch (e) { console.warn("SoundManager init:", e); }
+            try { if (this.soundManager) this._applyStoredSoundPreference(); } catch (e) {}
 
             this.towers = [];
             this.walls = [];
@@ -118,7 +119,8 @@ class GameScene {
         bind('pauseBtn', () => this.togglePause());
         bind('resumeBtn', () => this.resume());
         bind('pauseSettingsBtn', () => this.openSettingsMenu());
-        bind('reportBugBtn', () => this.openBugReport());
+        bind('reportBugBtn', () => this.openBugReport('bug'));
+        bind('ideaBtn', () => this.openBugReport('idea'));
         bind('restartBtn', () => this.restart());
         bind('quitToMenuBtn', () => {
             this.deselectTower();
@@ -135,8 +137,10 @@ class GameScene {
         bind('postGameOverMenuBtn', () => this.quitToMainMenu());
         bind('submitScoreBtn', () => this.submitGlobalScore());
         bind('skipSubmissionBtn', () => this.restart());
-        bind('sfxToggleBtn', () => this.setSfxEnabled(!this.soundManager.sfxEnabled));
-        bind('musicToggleBtn', () => this.setMusicEnabled(!this.soundManager.musicEnabled));
+        // v5.19: volume sliders
+        const sfxSl = document.getElementById('sfxVolumeSlider'), musSl = document.getElementById('musicVolumeSlider');
+        if (sfxSl && !sfxSl._bound) { sfxSl._bound = true; sfxSl.addEventListener('input', () => this.setSfxVolume(sfxSl.value / 100)); sfxSl.addEventListener('change', () => this.soundManager.playButtonClick()); }
+        if (musSl && !musSl._bound) { musSl._bound = true; musSl.addEventListener('input', () => this.setMusicVolume(musSl.value / 100)); }
         bind('vibrateToggleBtn', () => this.setVibrationEnabled(!this.soundManager.vibrationEnabled));
         bind('ffBtn', () => this.toggleFastForward());
         bind('upgradeAllHudBtn', () => this.toggleAutoUpgrade());
@@ -855,7 +859,7 @@ class GameScene {
         for (let i = this.ashEffects.length - 1; i >= 0; i--) {
             const effect = this.ashEffects[i];
             effect.time += deltaTime * 1000;
-            if (effect.time > 1500) {
+            if (effect.time > 1250) {
                 this.ashEffects[i] = this.ashEffects[this.ashEffects.length - 1];
                 this.ashEffects.pop();
             }
@@ -2107,7 +2111,7 @@ class GameScene {
         this._countdownOnComplete = onComplete;
         const updateInterval = 100; // Check every 100ms for more precision with speed mult
         this._countdownTimer = setInterval(() => {
-            if (this.gameStateManager.isPaused) return;
+            if (this.gameStateManager.isPaused || this._tutorialHold) return;
 
             remainingMs -= updateInterval * this.speedMultiplier;
             const displaySecs = Math.ceil(remainingMs / 1000);
@@ -2462,7 +2466,9 @@ class GameScene {
         const gapX = 2;
         // 7 per row on phones so L6 (7 towers) stays on one row; 8–14 wrap to a compact second row
         let perRow;
-        if (n <= 0) perRow = 7;
+        const wideLayout = document.body.classList.contains('cdc-wide');
+        if (wideLayout) perRow = Math.max(2, Math.min(3, Math.floor(width / 78)));
+        else if (n <= 0) perRow = 7;
         else if (n <= 7) perRow = n;
         else perRow = 7;
 
@@ -2475,7 +2481,7 @@ class GameScene {
         controlsEl.style.gridTemplateRows = '';
         controlsEl.style.gap = '2px ' + gapX + 'px';
 
-        const basis = (n > 0 && n <= 7)
+        const basis = (wideLayout || (n > 0 && n <= 7))
             ? 'calc((100% - ' + ((perRow - 1) * gapX) + 'px) / ' + perRow + ')'
             : 'calc((100% - ' + ((7 - 1) * gapX) + 'px) / 7)';
         wraps.forEach(w => {
@@ -2486,8 +2492,8 @@ class GameScene {
         });
 
         const rows = n ? Math.ceil(n / perRow) : 1;
-        controlsEl.classList.toggle('has-two-rows', rows === 2);
-        controlsEl.classList.toggle('has-three-rows', rows >= 3);
+        controlsEl.classList.toggle('has-two-rows', !wideLayout && rows === 2);
+        controlsEl.classList.toggle('has-three-rows', !wideLayout && rows >= 3);
         document.querySelector('.game-container') && document.querySelector('.game-container').classList.toggle('arsenal-compact', true);
 
         // Shrink label font until the full name fits (no ellipsis)
@@ -2496,7 +2502,7 @@ class GameScene {
             const name = w.querySelector('.tower-name');
             if (!name) return;
             name.style.textOverflow = 'clip';
-            let size = 11;
+            let size = wideLayout ? 12 : 11;
             name.style.fontSize = size + 'px';
             for (let i = 0; i < 10 && size > 6.5 && name.scrollWidth > name.clientWidth + 0.5; i++) {
                 size -= 0.5;
@@ -2537,13 +2543,24 @@ class GameScene {
         const sfx = document.getElementById('sfxToggleBtn');
         const mus = document.getElementById('musicToggleBtn');
         const vib = document.getElementById('vibrateToggleBtn');
-        if (sfx) sfx.textContent = `SFX: ${this.soundManager.sfxEnabled ? 'On' : 'Off'}`;
-        if (mus) mus.textContent = `Music: ${this.soundManager.musicEnabled ? 'On' : 'Off'}`;
+        const sm = this.soundManager, sv = Math.round(sm.sfxVolume * 100), mv = Math.round(sm.musicVolume * 100);
+        const sfxSl = document.getElementById('sfxVolumeSlider'), musSl = document.getElementById('musicVolumeSlider');
+        if (sfxSl) sfxSl.value = sv; if (musSl) musSl.value = mv;
+        const sfxV = document.getElementById('sfxVolumeVal'), musV = document.getElementById('musicVolumeVal');
+        if (sfxV) sfxV.textContent = sv + '%'; if (musV) musV.textContent = mv + '%';
         if (vib) vib.textContent = `Vibration: ${this.soundManager.vibrationEnabled ? 'On' : 'Off'}`;
     }
     _applyStoredSoundPreference() {
-        this.soundManager.sfxEnabled = localStorage.getItem('td_sfx_enabled') !== 'false';
-        this.soundManager.musicEnabled = localStorage.getItem('td_music_enabled') !== 'false';
+        // v5.19: volumes 0-100 (default 50). Migrate the old on/off toggles (off = 0).
+        const readVol = (key, oldKey) => {
+            const v = parseInt(localStorage.getItem(key), 10);
+            if (!isNaN(v)) return Math.max(0, Math.min(100, v));
+            const migrated = localStorage.getItem(oldKey) === 'false' ? 0 : 50;
+            localStorage.setItem(key, migrated);
+            return migrated;
+        };
+        this.soundManager.setSfxVolume(readVol('td_sfx_volume', 'td_sfx_enabled') / 100);
+        this.soundManager.setMusicVolume(readVol('td_music_volume', 'td_music_enabled') / 100);
         this.soundManager.vibrationEnabled = localStorage.getItem('td_vibrate_enabled') !== 'false';
     }
     openSettingsMenu() {
@@ -2709,6 +2726,21 @@ class GameScene {
         this.soundManager.musicEnabled = en;
         localStorage.setItem('td_music_enabled', en);
         en ? this.soundManager.playRandomMusic() : this.soundManager.stopMusic();
+        this._updateSoundSettingsUI();
+    }
+    setSfxVolume(v) {
+        this.soundManager.setSfxVolume(v);
+        localStorage.setItem('td_sfx_volume', Math.round(v * 100));
+        localStorage.setItem('td_sfx_enabled', v > 0);
+        this._updateSoundSettingsUI();
+    }
+    setMusicVolume(v) {
+        const was = this.soundManager.musicEnabled;
+        this.soundManager.setMusicVolume(v);
+        localStorage.setItem('td_music_volume', Math.round(v * 100));
+        localStorage.setItem('td_music_enabled', v > 0);
+        if (v > 0 && !was) this.soundManager.playRandomMusic();
+        else if (v <= 0 && was) this.soundManager.stopMusic();
         this._updateSoundSettingsUI();
     }
     setVibrationEnabled(en) {
@@ -2970,7 +3002,7 @@ class GameScene {
         if (bestDisplay) {
             const bScore = Math.max(best, current);
             const bRounds = localStorage.getItem('td_personal_best_rounds') || this.gameStateManager.round;
-            bestDisplay.textContent = `${this._formatTime(bScore)} (Round ${bRounds})`;
+            bestDisplay.textContent = `Best: ${this._formatTime(bScore)} (Round ${bRounds})`;
         }
 
         const nameInput = document.getElementById('playerNameInput');
@@ -2997,10 +3029,15 @@ class GameScene {
         screen.style.display = 'flex';
     }
 
-    openBugReport() {
+    openBugReport(kind) {
         this.deselectTower();
         const overlay = document.getElementById('bugModalOverlay');
         if (!overlay) { GameLogger.warn('openBugReport: #bugModalOverlay not found in DOM'); return; }
+        // v5.19: the same form doubles as the "Ideas?" box (type=idea)
+        this._feedbackKind = kind === 'idea' ? 'idea' : 'bug';
+        const h = overlay.querySelector('h2'), ta = document.getElementById('bugMessage');
+        if (h) h.textContent = this._feedbackKind === 'idea' ? '💡 Got an idea?' : '🐛 Report a Bug';
+        if (ta) ta.placeholder = this._feedbackKind === 'idea' ? 'What would make the game better?' : 'What went wrong?';
         overlay.style.display = 'flex';
 
         const cancelBtn = document.getElementById('cancelBugBtn');
@@ -3071,7 +3108,10 @@ class GameScene {
 
         if (loader) loader.style.display = 'flex';
 
-        const payload = this._getReportContext('USER_REPORT', msg.value.trim());
+        const isIdea = this._feedbackKind === 'idea';
+        const payload = this._getReportContext(isIdea ? 'IDEA' : 'USER_REPORT', msg.value.trim());
+        payload.kind = isIdea ? 'idea' : 'bug';
+        if (isIdea) payload._subject = 'CDC Idea – L' + (payload.level || '?');
         this._sendFeedback(payload);
         GameLogger.info('Bug report submitted (' + payload.platform + ').');
 
@@ -3525,17 +3565,33 @@ class GameScene {
         const ctx = canvas.getContext('2d');
         ctx.translate(canvas.width / 2, canvas.height / 2);
 
+        // v5.19: keep a colored copy for the "turn black" cross-fade, then the charred silhouette
+        const colorCanvas = document.createElement('canvas');
+        colorCanvas.width = canvas.width; colorCanvas.height = canvas.height;
+        const cctx = colorCanvas.getContext('2d');
+        cctx.translate(colorCanvas.width / 2, colorCanvas.height / 2);
+        try { enemy.renderBody(cctx, enemy.color); } catch (e) {}
         enemy.renderBody(ctx, '#222222');
         ctx.globalCompositeOperation = 'source-in';
         ctx.fillStyle = '#111111';
         ctx.fillRect(-canvas.width/2, -canvas.height/2, canvas.width, canvas.height);
 
+        // cosmetic-only PRNG so death FX never consume the gameplay Math.random sequence
+        let _seed = ((Math.floor(enemy.x * 131) * 73856093) ^ (Math.floor(enemy.y * 137) * 19349663)) >>> 0;
+        const rnd = () => { _seed = (Math.imul(_seed, 1664525) + 1013904223) >>> 0; return _seed / 4294967296; };
+        const flakes = [];
+        for (let i = 0; i < 14; i++) {
+            flakes.push({ x: rnd() * 2 - 1, y: rnd(), d: rnd() * 0.35, v: 0.5 + rnd(), up: 0.2 + rnd() * 0.8, s: 1.5 + rnd() * 2.5, c: rnd() < 0.3 ? '#666' : '#2e2e2e' });
+        }
         this.ashEffects.push({
             x: enemy.x,
             y: enemy.y,
             size: size,
             facingAngle: enemy.facingAngle,
             canvas: canvas,
+            colorCanvas: colorCanvas,
+            windDir: rnd() < 0.5 ? -1 : 1,
+            flakes: flakes,
             time: 0
         });
     }
@@ -3577,6 +3633,10 @@ function layoutPlayfield() {
 
         // Use the CSS width (don't keep a previously tightened maxWidth)
         container.style.maxWidth = '';
+        // v5.18: landscape / 16:9 windows use a 3-column layout (HUD | board | arsenal)
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const wide = !isAndroid && vw >= 560 && vw / Math.max(1, vh) >= 1.05;
+        document.body.classList.toggle('cdc-wide', wide);
 
         if (window.gameScene && typeof window.gameScene._layoutArsenal === 'function') {
             window.gameScene._layoutArsenal();
@@ -3593,10 +3653,13 @@ function layoutPlayfield() {
         const canvasStyle = window.getComputedStyle(canvas);
         const canvasMargins = (parseFloat(canvasStyle.marginTop) || 0) + (parseFloat(canvasStyle.marginBottom) || 0);
         const canvasBorders = (parseFloat(canvasStyle.borderTopWidth) || 0) + (parseFloat(canvasStyle.borderBottomWidth) || 0);
-        const chromeH = _outerHeight(hud) + _outerHeight(controls) + canvasMargins + canvasBorders;
+        const chromeH = wide ? (canvasMargins + canvasBorders) : (_outerHeight(hud) + _outerHeight(controls) + canvasMargins + canvasBorders);
         const remainingH = contentH - chromeH;
+        // Wide: the board column is what is left after the two side panels
+        const sideW = wide ? Math.max(150, Math.round(vw * 0.2)) : 0;
+        const boardW = wide ? Math.max(0, contentW - sideW * 2 - 24) : contentW;
 
-        const tileSizeW = Math.floor(contentW / columns);
+        const tileSizeW = Math.floor(boardW / columns);
         const tileSizeH = Math.floor(remainingH / targetRows);
         const tileSize = Math.max(18, Math.min(tileSizeW, tileSizeH));
 
@@ -3616,7 +3679,10 @@ function layoutPlayfield() {
 
         // Match HUD / arsenal width to the grid — never leave a wider min-width around a smaller board
         const aligned = canvas.width + padX;
-        if (!isAndroid) {
+        if (wide) {
+            container.style.maxWidth = '';
+            container.style.setProperty('--cdc-side-w', sideW + 'px');
+        } else if (!isAndroid) {
             container.style.maxWidth = aligned + 'px';
         }
 

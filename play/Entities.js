@@ -49,104 +49,99 @@ function renderDamageCracks(ctx, x, y, width, height, healthRatio) {
     ctx.restore();
 }
 
-// Global Reusable Ash Death Effect Renderer (for Flame, Tesla, Laser)
+// Global Reusable Ash Death Effect Renderer (for Flame, Tesla, Laser) — v5.19 cartoon sequence (~1.25s):
+// char black -> eyes blink twice -> body collapses into an ash pile while the eyes hang in the air ->
+// eyes drop into the pile -> a gust of wind blows the ash away. Eyes stay upright (no rotation).
 function renderAshDeathEffect(ctx, effect) {
-    const t = effect.time;
+    const t = effect.time, r = effect.size / 2;
+    if (t >= 1250) return;
     ctx.save();
     ctx.translate(effect.x, effect.y);
-
-    let bodyScaleY = 1.0;
-    let bodyScaleX = 1.0;
-    let eyesVisible = false;
-    let eyeSquashY = 1.0;
-    let eyeDropY = 0;
-    let globalAlpha = 1.0;
-    let ashPile = false;
-
-    if (t < 200) {
-        // Phase 1: Char (~150-200ms) - Solid black silhouette + smoke
-        const progress = t / 200;
-        ctx.fillStyle = `rgba(150, 150, 150, ${1 - progress})`;
-        ctx.beginPath(); ctx.arc(-10, -20 - progress * 15, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(10, -15 - progress * 20, 4, 0, Math.PI * 2); ctx.fill();
-    } else if (t < 700) {
-        // Phase 2: Double blink (~400-500ms) - Eyes blink twice, body static
-        eyesVisible = true;
-        const blinkT = (t - 200) / 500;
-        // Two blinks at 0.25 and 0.75 relative time
-        if (Math.abs(blinkT - 0.25) < 0.1 || Math.abs(blinkT - 0.75) < 0.1) {
-            eyeSquashY = 0.1;
-        }
-    } else if (t < 900) {
-        // Phase 3: Collapse (~150-250ms) - Rapid shrink into lumpy ash mound. Eyes float.
-        eyesVisible = true;
-        const collT = (t - 700) / 200;
-        bodyScaleY = 1.0 - (collT * 0.7); // Shrinks to 0.3
-        bodyScaleX = 1.0 + (collT * 0.2); // Squashes wider to 1.2
-        if (collT > 0.9) ashPile = true;
-    } else if (t < 1100) {
-        // Phase 4: Suspended beat (~150-250ms) - Eyes motionless above pile
-        eyesVisible = true;
-        bodyScaleY = 0.3;
-        bodyScaleX = 1.2;
-        ashPile = true;
-    } else {
-        // Phase 5: Eyes drop (~150-200ms) and fade out
-        eyesVisible = true;
-        const dropT = Math.min(1.0, (t - 1100) / 200);
-        bodyScaleY = 0.3;
-        bodyScaleX = 1.2;
-        ashPile = true;
-        eyeDropY = (dropT * dropT) * (effect.size / 2 * 0.7); // Accelerating gravity drop
-
-        if (t > 1300) {
-            const fadeT = (t - 1300) / 200;
-            globalAlpha = Math.max(0, 1.0 - fadeT);
-            eyeSquashY = 0.4; // Small squash on impact
-        }
-    }
-
-    ctx.globalAlpha = globalAlpha;
-
-    if (ashPile) {
-        ctx.fillStyle = '#222222';
-        ctx.beginPath();
-        // Lumpy dark-grey mound
-        ctx.ellipse(0, effect.size / 2, (effect.size / 2) * bodyScaleX, (effect.size / 2) * bodyScaleY, 0, 0, Math.PI * 2);
-        ctx.fill();
-    } else {
+    const groundY = r * 0.85;
+    const eyeY0 = -r * 0.15, eyeDX = r * 0.3, eyeR = Math.max(2.2, r * 0.2);
+    let eyeY = eyeY0, eyeSquash = 1, eyesOn = true, pile = 0, bodyScaleY = 1, bodyScaleX = 1;
+    if (t < 120) {
+        // 1) turn black: colored body cross-fades to a charred silhouette
+        const k = t / 120;
+        if (effect.colorCanvas) { ctx.globalAlpha = 1 - k; ctx.drawImage(effect.colorCanvas, -effect.colorCanvas.width / 2, -effect.colorCanvas.height / 2); }
+        ctx.globalAlpha = k;
+        ctx.drawImage(effect.canvas, -effect.canvas.width / 2, -effect.canvas.height / 2);
+        ctx.globalAlpha = 1;
+        eyesOn = k > 0.6;
+    } else if (t < 420) {
+        // 2) two fast blinks
+        ctx.drawImage(effect.canvas, -effect.canvas.width / 2, -effect.canvas.height / 2);
+        const b = (t - 120) / 300;
+        if ((b > 0.15 && b < 0.3) || (b > 0.55 && b < 0.7)) eyeSquash = 0.08;
+    } else if (t < 620) {
+        // 3) collapse into an ash pile; eyes hang where they were
+        const k = (t - 420) / 200, e = k * k;
+        bodyScaleY = 1 - 0.85 * e; bodyScaleX = 1 + 0.35 * e;
         ctx.save();
+        ctx.translate(0, groundY);
         ctx.scale(bodyScaleX, bodyScaleY);
-        // Translate down so the bottom stays grounded during the collapse squash
-        const offsetY = (1 - bodyScaleY) * (effect.size / 2);
-        ctx.translate(0, offsetY);
-        if (effect.canvas) {
-            ctx.drawImage(effect.canvas, -effect.canvas.width / 2, -effect.canvas.height / 2);
+        ctx.translate(0, -groundY);
+        ctx.drawImage(effect.canvas, -effect.canvas.width / 2, -effect.canvas.height / 2);
+        ctx.restore();
+        pile = e;
+    } else {
+        pile = 1;
+        if (t < 760) {
+            // 4) eyes hang in mid-air for a beat (tiny wobble)
+            eyeY = eyeY0 + Math.sin((t - 620) / 25) * 0.6;
+        } else if (t < 880) {
+            // 5) eyes drop into the pile (gravity ease-in), squash on landing
+            const k = (t - 760) / 120;
+            eyeY = eyeY0 + (groundY - r * 0.1 - eyeY0) * k * k;
+            if (k > 0.85) eyeSquash = 0.45;
+        } else {
+            eyesOn = false;
         }
-        ctx.restore();
     }
-
-    if (eyesVisible) {
-        ctx.save();
-        ctx.rotate(effect.facingAngle);
+    // ash pile + wind gust
+    if (pile > 0) {
+        const pw = r * 1.1 * Math.min(1, pile + 0.2), ph = r * 0.45 * pile;
+        if (t < 880) {
+            ctx.fillStyle = '#2a2a2a';
+            ctx.beginPath(); ctx.ellipse(0, groundY, pw, Math.max(1, ph), 0, Math.PI, 0); ctx.fill();
+            ctx.fillStyle = '#444';
+            ctx.beginPath(); ctx.ellipse(-pw * 0.3, groundY - ph * 0.4, pw * 0.35, Math.max(1, ph * 0.45), 0, 0, Math.PI * 2); ctx.fill();
+        } else {
+            // 6) gust: the pile shrinks while ash flakes drift sideways and fade
+            const k = (t - 880) / 370, dir = effect.windDir || 1;
+            if (k < 0.6) {
+                const sk = 1 - k / 0.6;
+                ctx.fillStyle = '#2a2a2a';
+                ctx.beginPath(); ctx.ellipse(dir * k * r * 0.6, groundY, pw * sk, Math.max(0.5, ph * sk), 0, Math.PI, 0); ctx.fill();
+            }
+            const flakes = effect.flakes || [];
+            for (let i = 0; i < flakes.length; i++) {
+                const f = flakes[i], fk = Math.max(0, Math.min(1, (k - f.d) / (1 - f.d)));
+                if (fk <= 0) continue;
+                ctx.globalAlpha = (1 - fk) * 0.9;
+                ctx.fillStyle = f.c;
+                const fx = f.x * pw + dir * fk * r * f.v * 3.2, fy = groundY - f.y * ph - fk * r * f.up + Math.sin(fk * 9 + i) * 1.5;
+                ctx.fillRect(fx, fy, f.s, f.s);
+            }
+            ctx.globalAlpha = 1;
+            // wind streaks
+            ctx.strokeStyle = 'rgba(255,255,255,' + (0.35 * (1 - k)).toFixed(2) + ')'; ctx.lineWidth = 1.5;
+            for (let i = 0; i < 2; i++) {
+                const sy = groundY - r * (0.2 + i * 0.5), sx = -r * 1.4 + dir * k * r * 2.6;
+                ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + dir * r * 0.6, sy - r * 0.25, sx + dir * r * 1.2, sy); ctx.stroke();
+            }
+        }
+    }
+    if (eyesOn) {
         ctx.fillStyle = '#ffffff';
-        const r = effect.size / 2;
-        const eyeRadius = r * 0.18;
-        const eyeLX = -r * 0.25, eyeLY = -r * 0.15;
-        const eyeRX = r * 0.25, eyeRY = -r * 0.15;
-
-        // Ensure the blink squash aligns with the body rotation correctly!
-        // We use the rotation value directly in the ellipse method instead of rotating the whole canvas,
-        // so the squash (Y-axis of the ellipse) is always applied relative to the eyes themselves.
-        ctx.beginPath();
-        ctx.ellipse(eyeLX, eyeLY + eyeDropY, eyeRadius, Math.max(0.1, eyeRadius * eyeSquashY), 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(eyeRX, eyeRY + eyeDropY, eyeRadius, Math.max(0.1, eyeRadius * eyeSquashY), 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        ctx.beginPath(); ctx.ellipse(-eyeDX, eyeY, eyeR, Math.max(0.3, eyeR * eyeSquash), 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(eyeDX, eyeY, eyeR, Math.max(0.3, eyeR * eyeSquash), 0, 0, Math.PI * 2); ctx.fill();
+        if (eyeSquash > 0.5) {
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(-eyeDX, eyeY, eyeR * 0.45, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(eyeDX, eyeY, eyeR * 0.45, 0, Math.PI * 2); ctx.fill();
+        }
     }
-
     ctx.restore();
 }
 
@@ -270,7 +265,7 @@ class BuildableEntity {
                 if (window.gameScene) window.gameScene._entitiesDirty = true;
                 window.gameScene?.updateLaserPaths?.();
                 if (this.isLaser) {
-                    window.gameScene?.soundManager?.playLaserReadySynth();
+                    window.gameScene?.soundManager?.playLightsaberIgnite();
                 } else if (!this.isLilypad) {
                     window.gameScene?.soundManager?.playUpgradeComplete();
                 }

@@ -5,6 +5,9 @@ class SoundManager {
         this.compressor = null;
         this.sfxEnabled = true;
         this.musicEnabled = true;
+        // v5.19: volume sliders (0..1, default 0.5 = the old fixed loudness)
+        this.sfxVolume = 0.5;
+        this.musicVolume = 0.5;
         this.vibrationEnabled = true;
         this._resumeBound = null;
         this._bufferCache = new Map(); // src -> Promise<AudioBuffer|null>, decoded once and reused for every playback
@@ -97,7 +100,7 @@ class SoundManager {
             return null;
         }
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.value = 0.35;
+        this.masterGain.gain.value = 0.35 * this.sfxVolume * 2;
         // Bus limiter — automatically tames the mix when many towers fire at once,
         // instead of every simultaneous voice adding up to an ever-louder peak.
         this.compressor = this.ctx.createDynamicsCompressor();
@@ -1445,7 +1448,7 @@ class SoundManager {
                 });
             }
         }
-        this._fadeVolume(0.25, durationMs);
+        this._fadeVolume(this.musicTargetVolume(), durationMs);
     }
 
     fadeOutMusic(durationMs = 4000, stopAfter = true) {
@@ -1455,7 +1458,7 @@ class SoundManager {
         });
     }
 
-    async playMusic(src, targetVol = 0.25, fadeInMs = 2500) {
+    async playMusic(src, targetVol = this.musicTargetVolume(), fadeInMs = 2500) {
         if (!this.musicEnabled || !src) return false;
 
         const audio = this._ensureMusicElement();
@@ -1616,8 +1619,59 @@ class SoundManager {
     }
 
     playLaserAction() {
-        const played = this._playRandomClip(this.weaponClips.laserAction, () => this.playLaserSynth(0.35));
-        if (!played) this.playLaserSynth(0.35);
+        // v5.19: the laser beam is silent while firing; the lightsaber ignite plays once when it is built.
+    }
+
+    // v5.19 volume sliders
+    musicTargetVolume() { return 0.25 * this.musicVolume * 2; }
+    setSfxVolume(v) {
+        this.sfxVolume = Math.max(0, Math.min(1, v));
+        this.sfxEnabled = this.sfxVolume > 0;
+        if (this.masterGain) this.masterGain.gain.value = 0.35 * this.sfxVolume * 2;
+    }
+    setMusicVolume(v) {
+        this.musicVolume = Math.max(0, Math.min(1, v));
+        this.musicEnabled = this.musicVolume > 0;
+        if (this.bgMusicAudio && !this.bgMusicAudio.paused && !this._musicFadeInterval) this.bgMusicAudio.volume = Math.min(1, this.musicTargetVolume());
+    }
+
+    // v5.19: synthesized lightsaber ignite + short hum (no audio files, nothing copyrighted). Plays once.
+    playLightsaberIgnite(volume = 0.5) {
+        if (!this.sfxEnabled) return;
+        const ctx = this.ensureContext();
+        if (!ctx) return;
+        const now = ctx.currentTime, dur = 1.1;
+        const out = ctx.createGain();
+        out.gain.setValueAtTime(0.0001, now);
+        out.gain.exponentialRampToValueAtTime(volume, now + 0.06);
+        out.gain.setValueAtTime(volume, now + 0.35);
+        out.gain.linearRampToValueAtTime(volume * 0.55, now + 0.6);
+        out.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.Q.value = 6;
+        lp.frequency.setValueAtTime(300, now);
+        lp.frequency.exponentialRampToValueAtTime(2400, now + 0.18);
+        lp.frequency.exponentialRampToValueAtTime(900, now + 0.5);
+        lp.connect(out); out.connect(this.masterGain);
+        [[1, 'sawtooth', 0.5], [1.012, 'sawtooth', 0.4], [2, 'square', 0.12]].forEach(([m, type, g]) => {
+            const o = ctx.createOscillator(), og = ctx.createGain();
+            o.type = type;
+            o.frequency.setValueAtTime(55 * m, now);
+            o.frequency.exponentialRampToValueAtTime(130 * m, now + 0.16);
+            o.frequency.exponentialRampToValueAtTime(92 * m, now + 0.45);
+            og.gain.value = g;
+            o.connect(og); og.connect(lp);
+            o.start(now); o.stop(now + dur + 0.05);
+        });
+        // ignition "whoosh": band-passed noise sweeping up
+        const len = Math.floor(ctx.sampleRate * 0.4), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        const n = ctx.createBufferSource(); n.buffer = buf;
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.5;
+        bp.frequency.setValueAtTime(400, now); bp.frequency.exponentialRampToValueAtTime(3500, now + 0.3);
+        const ng = ctx.createGain(); ng.gain.setValueAtTime(volume * 0.5, now); ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+        n.connect(bp); bp.connect(ng); ng.connect(this.masterGain);
+        n.start(now); n.stop(now + 0.4);
     }
 
     playMortarExplosion() {
@@ -1639,15 +1693,16 @@ class SoundManager {
 
         // 2. Play Castle Death sound effect at FULL max volume (1.0), cropping the first 0.7s offset
         try {
+            if (this.sfxVolume <= 0) throw 0;
             const sfx = new Audio(encodeURI('audio/sfx/Fahhh Castle Death.mp3'));
-            sfx.volume = 1.0;
+            sfx.volume = Math.min(1, this.sfxVolume * 2);
             sfx.currentTime = 0.7; // Crop the first 0.7 seconds
             sfx.play().catch(e => {
                 console.warn("Castle Death HTML5 play warning, falling back to Web Audio:", e);
                 this._playBufferSource('audio/sfx/Fahhh Castle Death.mp3', { volume: 1.0, offset: 0.7 });
             });
         } catch (e) {
-            this._playBufferSource('audio/sfx/Fahhh Castle Death.mp3', { volume: 1.0, offset: 0.7 });
+            if (this.sfxVolume > 0) this._playBufferSource('audio/sfx/Fahhh Castle Death.mp3', { volume: 1.0, offset: 0.7 });
         }
 
         // Reset flag after 3 seconds for future game runs
