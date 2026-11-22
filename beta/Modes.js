@@ -106,7 +106,8 @@
         if (isNew) { localStorage.setItem('td_endless_best', secs); localStorage.setItem('td_endless_best_round', round); }
         const sc = document.getElementById('finalScore'); if (sc) sc.textContent = fmt(secs);
         const bd = document.getElementById('highScoreDisplay');
-        if (bd) bd.textContent = (isNew ? '🏆 New best! ' : '') + 'Best: ' + fmt(Math.max(best, secs)) + ' (Round ' + (localStorage.getItem('td_endless_best_round') || round) + ')';
+        if (bd) bd.textContent = fmt(Math.max(best, secs)) + ' · R' + (localStorage.getItem('td_endless_best_round') || round); // v5.22
+        const br = document.getElementById('highScoreRow'); if (br) br.classList.toggle('is-new', isNew);
         const h = document.querySelector('#gameOverScreen h2'); if (h) h.textContent = '💀 You survived ' + fmt(secs);
         return r;
     };

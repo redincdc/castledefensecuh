@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Castle Defense Cuh — Play</title>
     <link rel="icon" href="../favicon.ico" sizes="any">
-    <link rel="stylesheet" href="style.css?v=5.20">
-    <link rel="stylesheet" href="../beta/polish.css?b=1">
+    <link rel="stylesheet" href="style.css?v=5.22b">
+    <link rel="stylesheet" href="../beta/polish.css?b=3">
 </head>
 <body>
     <div class="game-container">
@@ -64,6 +64,10 @@
                 <button type="button" class="btn-main btn-menu-sub" id="settingsBtn" onclick="if(window.gameScene && window.gameScene.openSettingsMenu) window.gameScene.openSettingsMenu();">⚙ Settings</button>
                 <button type="button" class="btn-main btn-menu-sub" id="leaderboardBtn" onclick="if(window.gameScene && window.gameScene.openLeaderboard) window.gameScene.openLeaderboard();">🏆 Scores</button>
                 </div>
+                <div class="menu-sub-row menu-feedback-row">
+                <button type="button" class="btn-main btn-menu-sub btn-menu-feedback" id="menuReportBugBtn" style="background: #FF9800;" onclick="if(window.gameScene && window.gameScene.openBugReport) window.gameScene.openBugReport('bug');">🐛 Report Bug</button>
+                <button type="button" class="btn-main btn-menu-sub btn-menu-feedback" id="menuIdeaBtn" style="background: #8E44AD;" onclick="if(window.gameScene && window.gameScene.openBugReport) window.gameScene.openBugReport('idea');">💡 Ideas?</button>
+                </div>
                 <button type="button" class="btn-link" id="tutorialReplayBtn">❓ How to play</button>
                 <a class="btn-main btn-donate" id="donateMenuBtn" href="https://www.paypal.com/qrcodes/p2pqrc/G3XKKF968JUTC" target="_blank" rel="noopener">☕ Donate</a>
             </div>
@@ -107,9 +111,9 @@
         <div class="game-over-screen" id="gameOverScreen">
             <h2>💀 Game Over</h2>
             <div class="game-over-stats">
-                <p>Survived: <b id="finalScore">0:00</b></p>
-                <p>Rounds: <b id="finalRounds">0</b></p>
-                <p id="highScoreDisplay">Best: 0:00</p>
+                <div class="cdc-stat"><span>Survived</span><b id="finalScore">0:00</b></div>
+                <div class="cdc-stat"><span>Rounds</span><b id="finalRounds">0</b></div>
+                <div class="cdc-stat cdc-stat-best" id="highScoreRow"><span>Best</span><b id="highScoreDisplay">0:00</b></div>
             </div>
             <div id="scoreSubmissionArea">
                 <button class="btn-main" id="reviveAdBtn" style="background: #2196F3; margin-bottom: 10px; display: none !important;" hidden>📺 Watch Ad to Revive</button>
@@ -131,9 +135,9 @@
         <div class="level-complete-screen" id="levelCompleteScreen">
             <h2 id="levelCompleteTitle">Level 1 Complete!</h2>
             <div class="level-complete-stats">
-                <p>Gold Earned: <b id="levelCompleteGold">0</b>g</p>
-                <p>Time: <b id="levelCompleteTime">0:00</b></p>
-                <p id="levelCompleteWaterNotice" style="color: #4CAF50; display: none; margin-top: 6px;">💧 Water 2x Bonus Active!</p>
+                <div class="cdc-stat cdc-stat-gold"><span>Gold earned</span><b><span id="levelCompleteGold">0</span>g</b></div>
+                <div class="cdc-stat"><span>Time</span><b id="levelCompleteTime">0:00</b></div>
+                <div class="cdc-stat" id="levelCompleteWaterNotice" style="display: none;">💧 Water 2x Bonus Active!</div>
             </div>
             <div class="level-complete-buttons">
                 <button class="btn-main" id="nextLevelBtn" style="background: #4CAF50;">Next Level</button>
@@ -231,13 +235,13 @@
     <script src="Core.js"></script>
     <script src="GameConfig.js"></script>
     <script src="TextureManager.js"></script>
-    <script src="../beta/SoundManager.js?b=1"></script>
-    <script src="Engine.js"></script>
-    <script src="GridSystem.js"></script>
+    <script src="../beta/SoundManager.js?b=3"></script>
+    <script src="../beta/Engine.js?b=3"></script>
+    <script src="../beta/GridSystem.js?b=3"></script>
     <script src="Projectile.js"></script>
     <script src="Portal.js"></script>
-    <script src="../beta/Entities.js?b=1"></script>
-    <script src="enemies/Enemy.js"></script>
+    <script src="../beta/Entities.js?b=3"></script>
+    <script src="../beta/Enemy.js?b=3"></script>
     <script src="enemies/Normy.js"></script>
     <script src="enemies/Groupie.js"></script>
     <script src="enemies/Speedy.js"></script>
@@ -246,7 +250,7 @@
     <script src="enemies/Flyer.js"></script>
     <script src="enemies/Splitter.js"></script>
     <script src="enemies/Breaker.js"></script>
-    <script src="../beta/Tower.js?b=1"></script>
+    <script src="../beta/Tower.js?b=3"></script>
     <script src="towers/WallTower.js"></script>
     <script src="towers/SpikeTrap.js"></script>
     <script src="towers/MirrorTower.js"></script>
@@ -265,18 +269,39 @@
     <script src="BalanceAnalytics.js"></script>
     <script src="LogManager.js"></script>
     <script src="HeadlessSimulator.js"></script>
-    <script src="../beta/game.js?b=1"></script>
-    <script src="../beta/Polish.js?b=1"></script>
-    <script src="../beta/Extras.js?b=1"></script>
-    <script src="../beta/Modes.js?b=1"></script>
+    <script src="../beta/game.js?b=3"></script>
+    <script src="../beta/Polish.js?b=3"></script>
+    <script src="../beta/Extras.js?b=3"></script>
+    <script src="../beta/Modes.js?b=3"></script>
     <script>
-        window.CDC_VERSION = '5.20';
+        window.CDC_VERSION = '5.22-beta';
         window._cdcCrashSent = false;
+        // v5.21: player bug reports / ideas are ALSO copied to FormSubmit. Fire-and-forget: never awaited, every
+        // error swallowed, so it can't block or break the Formspree submit or the UI.
+        window.cdcMirrorFeedback = function(payload) {
+            try {
+                if (!payload || (payload.type !== 'USER_REPORT' && payload.type !== 'IDEA')) return;
+                var isIdea = payload.type === 'IDEA' || payload.kind === 'idea';
+                var body = {
+                    message: payload.message || '', type: payload.type, kind: payload.kind || (isIdea ? 'idea' : 'bug'),
+                    level: payload.level, round: payload.round, version: payload.version, device: payload.device,
+                    _subject: (isIdea ? 'CDC Idea – L' : 'CDC Player Report – L') + (payload.level || '?'),
+                    _captcha: 'false'
+                };
+                var p = fetch('https://formsubmit.co/ajax/1e946bb4ecd966a273a87cbc45712476', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (p && p.catch) p.catch(function() {});
+            } catch (e) {}
+        };
         window.cdcSendFeedback = function(payload) {
             if (typeof Android !== 'undefined' && Android.submitFeedback) {
                 Android.submitFeedback(JSON.stringify(payload));
                 return;
             }
+            try { setTimeout(function() { window.cdcMirrorFeedback(payload); }, 0); } catch (e) {}
             fetch("https://formspree.io/f/mkjwjbog", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Accept": "application/json" },

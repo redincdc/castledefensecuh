@@ -1073,6 +1073,7 @@ class GameScene {
 
         // Pass 1: Ground Flats (Spikes, Lilypads)
         this._renderPasses.groundFlats.forEach(ent => ent.render(this.ctx, this.gameTime));
+        if (window.CDC_drawTrailOver) window.CDC_drawTrailOver(this); // v5.21: path arrows stay visible over spikes
 
         // Pass 2: Interleaved Bodies (Tower Bases, Regular Enemies, Walls, Mirrors)
         // Y-sorting here handles occlusion correctly (walking behind towers)
@@ -1434,7 +1435,7 @@ class GameScene {
             const dps = (tower.damage / 0.1).toFixed(1); // 100ms interval
             statsHtml = `
                 <div class="stat-box"><span>Attack</span> <b>${dps}dps</b></div>
-                <div class="stat-box"><span>Bounces</span> <b>50</b></div>
+                <div class="stat-box"><span>Burst</span> <b>${(Tower.BURST.laser.on / 1000).toFixed(1)}s</b></div>
                 <button id="autoUpgradeTypeBtn" class="btn-auto ${autoUpgradeActive ? 'active' : ''}">
                     Auto: ${autoUpgradeActive ? 'ON' : 'OFF'}
                 </button>
@@ -3010,7 +3011,8 @@ class GameScene {
         if (bestDisplay) {
             const bScore = Math.max(best, current);
             const bRounds = localStorage.getItem('td_personal_best_rounds') || this.gameStateManager.round;
-            bestDisplay.textContent = `Best: ${this._formatTime(bScore)} (Round ${bRounds})`;
+            bestDisplay.textContent = `${this._formatTime(bScore)} · R${bRounds}`; // v5.22: label lives in the row
+            const bRow = document.getElementById('highScoreRow'); if (bRow) bRow.classList.toggle('is-new', current > best);
         }
 
         const nameInput = document.getElementById('playerNameInput');
@@ -3097,6 +3099,7 @@ class GameScene {
             Android.submitFeedback(JSON.stringify(payload));
             return;
         }
+        try { if (window.cdcMirrorFeedback) setTimeout(() => window.cdcMirrorFeedback(payload), 0); } catch (e) {} // v5.21 copy
         fetch("https://formspree.io/f/mkjwjbog", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Accept": "application/json" },

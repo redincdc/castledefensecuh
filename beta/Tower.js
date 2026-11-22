@@ -331,6 +331,7 @@ class Tower extends BuildableEntity {
 
     updateLaser(currentTime, enemies, scene) {
         if (this._laserPathDirty || !this.laserPath) { this._computeLaserPath(scene); this._laserPathDirty = false; }
+        if (!this._burstActive(currentTime)) { this.lastShotTime = currentTime; return; } // v5.22 cooldown
 
         let ticks = 0;
         while (currentTime - this.lastShotTime >= this.fireRate) {
@@ -360,8 +361,9 @@ class Tower extends BuildableEntity {
     }
 
     updateFlame(currentTime, enemies, scene) {
-        // GDD: Flamethrower is always "On" visually if built
-        this.isFiringFlame = true;
+        // v5.22: fires in bursts (was always on): ~2.2s of fire, ~1.3s cooldown
+        this.isFiringFlame = this._burstActive(currentTime);
+        if (!this.isFiringFlame) { this.lastShotTime = currentTime; return; }
 
         let ticks = 0;
         while (currentTime - this.lastShotTime >= this.fireRate) {
@@ -388,6 +390,18 @@ class Tower extends BuildableEntity {
             }
         }
         if (scene && scene.soundManager) scene.soundManager.playWeaponSound('flame', this);
+    }
+
+    // v5.22: always-on weapons (flamethrower, laser) fire in bursts with a short cooldown.
+    // Upgrades shorten the cooldown a little (-6% per level). Cycle is game-time based (deterministic).
+    _burstActive(now) {
+        const B = Tower.BURST[this.type];
+        if (!B) { this.burstCooling = false; return true; }
+        if (this._burstT0 === undefined || now < this._burstT0) this._burstT0 = now;
+        const off = B.off * Math.max(0.6, 1 - 0.06 * (this.upgradeLevel || 0)), cyc = B.on + off, ph = (now - this._burstT0) % cyc;
+        this.burstCooling = ph >= B.on;
+        this.burstCharge = this.burstCooling ? (ph - B.on) / off : 1;
+        return !this.burstCooling;
     }
 
     _computeLaserPath(scene) {
@@ -1439,7 +1453,16 @@ class Tower extends BuildableEntity {
             }
             ctx.shadowBlur = 0; ctx.restore();
         }
-        if (this.isLaser && this.laserPath && this.laserPath.length >= 2) {
+        if ((this.isLaser || this.isFlame) && this.isBuilt && !this.isUpgrading && this.burstCooling) {
+            // v5.22 cooldown: thin recharge ring + cooling nozzle glow
+            const r = this.size * 0.58, a0 = -Math.PI / 2, ch = Math.max(0, Math.min(1, this.burstCharge || 0));
+            ctx.save(); ctx.lineCap = 'round';
+            ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.arc(this.x, this.y, r, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = this.isFlame ? 'rgba(255,183,77,1)' : 'rgba(128,222,255,1)'; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(this.x, this.y, r, a0, a0 + ch * Math.PI * 2); ctx.stroke();
+            ctx.restore();
+        }
+        if (this.isLaser && !this.burstCooling && this.laserPath && this.laserPath.length >= 2) {
             const lvl = Math.min(this.upgradeLevel, 5), colors = ['#FF0000', '#00FF00', '#0000FF'], thickness = (lvl % 2 === 0) ? 1.0 : 2.5, laserColor = colors[Math.floor(lvl / 2)];
             const lx = this.x + Math.cos(this.laserAngle) * (this.size * 0.22), ly = this.y + Math.sin(this.laserAngle) * (this.size * 0.22);
             const layers = [{ color: laserColor, width: thickness * 7, alpha: 0.35, blur: 12 }, { color: laserColor, width: thickness * 3, alpha: 0.8, blur: 0 }, { color: '#FFFFFF', width: thickness, alpha: 1.0, blur: 0 }];
@@ -1476,3 +1499,6 @@ class Tower extends BuildableEntity {
         }
     }
 }
+
+// v5.22: burst/cooldown timings (ms) for always-on weapons
+Tower.BURST = { flame: { on: 2200, off: 1300 }, laser: { on: 2400, off: 1600 } };
