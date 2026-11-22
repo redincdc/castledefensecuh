@@ -78,8 +78,29 @@ class Enemy {
         this.isBoss = false; // GDD §9: Support for mini-bosses in every round
     }
 
-    _repath(gridSystem) {
+    _repath(gridSystem, raw = false) {
         if (!gridSystem) return;
+        // v5.21: raw repath = walk tile center to tile center from the tile we stand on (no corner cutting).
+        // Big (scaled-up) enemies used to clip wall corners on the smoothed path, get blocked, repath onto the
+        // very same smoothed path and loop forever ("stuck on the wall").
+        if (raw) {
+            const rp = gridSystem.findPathFrom(this.x, this.y, this._scene.towers, this.special, this._scene.walls, true, true);
+            if (rp && rp.length) {
+                rp.unshift({ x: this.x, y: this.y });
+                this.isBlocked = false; this.needsPathUpdate = false;
+                this.path = rp; this.pathIndex = -1; this._rawPathUntil = (this._gtMs || 0) + 4000; // gameTime is in ms
+                this.totalPathLength = 0;
+                for (let j = 1; j < rp.length; j++) this.totalPathLength += dist(rp[j - 1].x, rp[j - 1].y, rp[j].x, rp[j].y);
+                if (window.logManager) window.logManager.log(`${this.type} unstuck (tile path)`, "AI");
+                return;
+            }
+            // no way out from the tile we stand on: walled in. Don't fall back to a pivot path through the wall.
+            if (this.special !== 'fly') {
+                this.isBlocked = false; this.needsPathUpdate = false;
+                if (!this._trapped) { this._trapped = true; this._trapCheckT = -1e9; }
+                return;
+            }
+        }
 
         // GDD §7: Pivot-Point Selection
         // Only use a future node as a pivot if it's walkable AND has clear line-of-sight.
@@ -109,10 +130,74 @@ class Enemy {
             // We unshift the current position as the first node to ensure a smooth transition
             newPath.unshift({ x: this.x, y: this.y });
             this.updatePath(newPath);
+            this._trapped = false; this._trapTarget = null;
         } else {
             if (window.logManager) window.logManager.log(`${this.type} failed to find path from [${Math.round(startX)},${Math.round(startY)}]`, "AI");
             this.needsPathUpdate = false;
+            // v5.21: walled in (e.g. a fence finished around/in front of us): break out instead of freezing on the wall
+            if (this.special !== 'fly') { this._trapped = true; this._trapCheckT = -1e9; }
         }
+    }
+
+    // v5.22: spikes and lilypads mark their tile reserved but enemies walk over them (only castle/portal tiles are off-limits)
+    _walkOverTile(gridSystem, tile) {
+        const ent = gridSystem.getStructureAtTile(tile);
+        return !!(ent && (ent.isSpike || ent.isLilypad || ent.type === 'spike' || ent.type === 'lilypad'));
+    }
+
+    // v5.21: first player structure between us and the castle, ignoring structures (water still blocks walkers).
+    // Sets this.path to the free tiles up to it and returns the structure to chew through.
+    _findTrapTarget(gridSystem) {
+        const ts = GameConfig.Grid.tileSize, rows = GameConfig.Grid.rows, cols = GameConfig.Grid.columns;
+        const occ = {};
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+            const t = gridSystem.tiles[r][c];
+            if (t && t.water && this.special !== 'swim' && !gridSystem.isLilypadTile(t)) occ[gridSystem.pathFinder.keyOf(t)] = true;
+        }
+        const ct = gridSystem.tiles[gridSystem.castleRow] && gridSystem.tiles[gridSystem.castleRow][gridSystem.castleCol];
+        if (!ct) return null;
+        const endPos = { x: ct.x + ts, y: ct.y + ts };
+        gridSystem.pathFinder._raw = true;
+        let tiles = null;
+        try { tiles = gridSystem.pathFinder.findLowTurnPath({ x: this.x, y: this.y }, endPos, occ, this.special); } finally { gridSystem.pathFinder._raw = false; }
+        if (!tiles) return null;
+        for (let i = 1; i < tiles.length; i++) {
+            if (!tiles[i].occupied) continue;
+            const ent = gridSystem.getStructureAtTile(tiles[i]);
+            if (!ent || ent.isDestroying) return null;
+            const p = [{ x: this.x, y: this.y }].concat(gridSystem.tilesToCoords(tiles.slice(0, i)));
+            this.path = p; this.pathIndex = -1; this.totalPathLength = 0;
+            for (let j = 1; j < p.length; j++) this.totalPathLength += dist(p[j - 1].x, p[j - 1].y, p[j].x, p[j].y);
+            if (window.logManager) window.logManager.log(`${this.type} walled in -> attacking ${ent.type}`, "AI");
+            return ent;
+        }
+        return null;
+    }
+
+    // v5.21: returns true while busy chewing (skip normal movement this frame)
+    _updateTrapped(deltaTime, gridSystem, gameTime) {
+        const tg = this._trapTarget;
+        if (!tg || tg.isDestroying || tg.health <= 0 || gameTime - this._trapCheckT >= 1000) {
+            this._trapCheckT = gameTime;
+            const rp = gridSystem.findPathFrom(this.x, this.y, this._scene.towers, this.special, this._scene.walls, true, true);
+            if (rp && rp.length) { // a way out opened up (wall destroyed / sold): go
+                this._trapped = false; this._trapTarget = null;
+                rp.unshift({ x: this.x, y: this.y });
+                this.path = rp; this.pathIndex = -1; this.totalPathLength = 0;
+                for (let j = 1; j < rp.length; j++) this.totalPathLength += dist(rp[j - 1].x, rp[j - 1].y, rp[j].x, rp[j].y);
+                return false;
+            }
+            if (!tg || tg.isDestroying || tg.health <= 0) this._trapTarget = this._findTrapTarget(gridSystem);
+            if (!this._trapTarget) { this._trapped = false; return false; }
+        }
+        if (this.pathIndex < this.path.length - 1) return false; // still walking to the wall
+        const t = this._trapTarget;
+        this.facingAngle = Math.atan2(t.y - this.y, t.x - this.x);
+        if (gameTime - (this.lastAttackTime || 0) >= this.attackSpeed) {
+            this.lastAttackTime = gameTime;
+            if (t.takeDamage) t.takeDamage(this.damage, this);
+        }
+        return true;
     }
 
     teleportToPath(gridSystem) {
@@ -151,7 +236,7 @@ class Enemy {
             while (teleportIdx < this.path.length) {
                 const node = this.path[teleportIdx];
                 const tile = gridSystem.getTileAtPosition(node.x, node.y);
-                if (tile && gridSystem.isTileWalkable(tile, this.special) && !tile.occupied && !tile.reserved) {
+                if (tile && gridSystem.isTileWalkable(tile, this.special) && !tile.occupied && !(tile.reserved && !this._walkOverTile(gridSystem, tile))) { // v5.22: spike/lilypad tiles are safe
                     foundSafe = true;
                     break;
                 }
@@ -300,6 +385,7 @@ class Enemy {
 
     update(deltaTime, castle, gridSystem, gameTime) {
         if (this.isDead) return;
+        this._gtMs = gameTime;
 
         // GDD §7: Stuck Detection & Teleportation Failsafe
         const prevX = this.x;
@@ -308,7 +394,7 @@ class Enemy {
 
         // Emergency repath or Grid Update request
         if ((this.isBlocked || this.needsPathUpdate) && gridSystem) {
-            this._repath(gridSystem);
+            this._repath(gridSystem, (this._rawPathUntil || 0) > gameTime);
         }
 
         if (this.slowEndTime > 0 && gameTime >= this.slowEndTime) {
@@ -394,6 +480,11 @@ class Enemy {
             }
         }
 
+        if (this._trapped && gridSystem && this.special !== 'fly' && this._updateTrapped(deltaTime, gridSystem, gameTime)) {
+            this.lastX = this.x; this.lastY = this.y; this.stuckTimer = 0; this._wdT = gameTime; this._wdX = this.x; this._wdY = this.y;
+            return;
+        }
+
         // GDD §7: Standard "Target-Following" Movement (Continuous traversal)
         let remainingMove = effectiveSpeed * deltaTime;
         while (remainingMove > 0 && this.pathIndex < this.path.length - 1) {
@@ -420,6 +511,7 @@ class Enemy {
                 this.distanceTraveled += distToNode;
                 this.walkPhase += distToNode * 0.15;
                 this.pathIndex++;
+                this._blockHits = 0;
             } else {
                 // Move partially towards the next node
                 const ratio = distToNode > 0 ? (remainingMove / distToNode) : 0;
@@ -428,7 +520,9 @@ class Enemy {
 
                 // GDD §12: Enhanced Blocker Guard (Radius-Aware & Sliding)
                 if (gridSystem && this.special !== 'fly' && !window._headless) {
-                    const radius = (this.size / 2) * 0.65; // Slightly tighter for better path fitting
+                    // v5.21: cap the collision body below half a tile; enemies grow with HP (up to 2x) and a body
+                    // wider than a tile could never fit between walls or past a corner
+                    const radius = Math.min((this.size / 2) * 0.65, GameConfig.Grid.tileSize * 0.42);
 
                     const checkCollision = (cx, cy) => {
                         const pts = [
@@ -468,7 +562,10 @@ class Enemy {
                             this.y += (centerY - this.y) * 0.1;
                         }
 
-                        this._repath(gridSystem);
+                        // v5.21: repeated blocks -> switch to the tile-center path instead of the same smoothed one
+                        this._blockHits = (this._blockHits || 0) + 1;
+                        this._repath(gridSystem, this._blockHits >= 3 || (this._rawPathUntil || 0) > gameTime);
+                        if (this._blockHits >= 3) this._blockHits = 0;
                         remainingMove = 0;
                         break;
                     }
@@ -480,7 +577,8 @@ class Enemy {
                 // --- HARD MAP PERIMETER RADIUS GUARD ---
                 // Account for the enemy's physical body radius (r = size / 2) so half their body NEVER sticks out
                 const ts = GameConfig.Grid.tileSize;
-                const r = (this.size || 20) / 2;
+                // v5.21: never clamp more than half a tile, or a grown enemy can't reach an edge tile's center and freezes
+                const r = Math.min((this.size || 20) / 2, ts / 2 - 1);
                 const originX = (gridSystem && gridSystem._origin) ? gridSystem._origin.x : 0;
                 const originY = (gridSystem && gridSystem._origin) ? gridSystem._origin.y : 0;
 
@@ -516,9 +614,31 @@ class Enemy {
             } else {
                 this.stuckTimer = 0;
             }
+            // v5.21: progress watchdog. Catches oscillation (nudge / repath loops) that the per-frame check misses:
+            // if the body hasn't really moved in 2.5 s (game time, ms), take the tile-center path from where it stands.
+            const gt = gameTime || 0;
+            if (this._wdT === undefined || gt < this._wdT) { this._wdT = gt; this._wdX = this.x; this._wdY = this.y; }
+            else if (gt - this._wdT >= 2500) { // ms
+                const moved = dist(this.x, this.y, this._wdX, this._wdY);
+                if (moved < GameConfig.Grid.tileSize * 0.25 && !this.isDrowning && (this.slowMult === undefined || this.slowMult > 0.05) && gridSystem && this.special !== 'fly') {
+                    this._wdStrikes = (this._wdStrikes || 0) + 1;
+                    const t = gridSystem.getTileAtPosition(this.x, this.y);
+                    if (this._wdStrikes >= 2 && t) { // still stuck: step to our own tile's center (or nearest open neighbour)
+                        const ts2 = GameConfig.Grid.tileSize; let best = gridSystem.isTileWalkable(t, this.special) ? t : null;
+                        for (let dr = -1; dr <= 1 && !best; dr++) for (let dc = -1; dc <= 1 && !best; dc++) {
+                            const nt = gridSystem.tiles[t.row + dr] && gridSystem.tiles[t.row + dr][t.col + dc];
+                            if (nt && gridSystem.isTileWalkable(nt, this.special) && !(nt.reserved && !this._walkOverTile(gridSystem, nt))) best = nt;
+                        }
+                        if (best) { this.x = best.x + ts2 / 2; this.y = best.y + ts2 / 2; }
+                        this._wdStrikes = 0;
+                    }
+                    this._repath(gridSystem, true);
+                } else this._wdStrikes = 0;
+                this._wdT = gt; this._wdX = this.x; this._wdY = this.y;
+            }
         }
 
-        if (this.pathIndex >= this.path.length - 1 && !this.isDead) {
+        if (this.pathIndex >= this.path.length - 1 && !this.isDead && !this._trapped) {
             this.isAttacking = true;
         }
 
