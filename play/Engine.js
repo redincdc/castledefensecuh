@@ -337,7 +337,7 @@ class PathFinder {
     }
 
     smoothPath(path, occupied = {}) {
-        if (!path || path.length <= 2) return path;
+        if (!path || path.length <= 2 || this._raw) return path;
         const smoothed = [path[0]];
         let currentIdx = 0;
 

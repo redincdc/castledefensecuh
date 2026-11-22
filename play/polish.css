@@ -120,3 +120,200 @@ body.cdc-wide #playBtn, body.cdc-wide #continueBtn, body.cdc-wide #levelSelectMe
   background-size: contain; background-repeat: no-repeat; background-position: center; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
 body.cdc-dragging, body.cdc-dragging * { cursor: grabbing !important; }
 .btn-tower { touch-action: manipulation; -webkit-user-drag: none; user-select: none; }
+/* v5.21: Report Bug + Ideas? on the main menu (same compact row as Settings / Scores) */
+.menu-sub-row.menu-feedback-row .btn-menu-feedback { font-size: clamp(11px, 1.7vh, 15px); white-space: nowrap; padding: clamp(5px, 1vh, 9px) 4px; }
+.menu-sub-row.menu-feedback-row #menuReportBugBtn { background: #B86E12 !important; }
+.menu-sub-row.menu-feedback-row #menuIdeaBtn { background: #6C3483 !important; }
+@media (max-height: 480px) { body:not(.cdc-wide) .main-menu-icon { font-size: clamp(64px, 26vh, 144px); margin-bottom: 4px; } }
+
+/* =====================================================================
+   v5.22 UI cleanup: one spacing grid (4/8/12/16px), one button style,
+   label|value stat rows, full-window menus that never clip on phones
+   ===================================================================== */
+:root {
+  --u1: 4px; --u2: 8px; --u3: 12px; --u4: 16px;
+  --r-btn: 10px; --r-card: 14px;
+  --btn-w: min(264px, 100%);
+  --btn-h: clamp(36px, 6.2vh, 50px);
+  --btn-fs: clamp(14px, 2.2vh, 18px);
+  --panel-bg: linear-gradient(180deg, rgba(28,40,32,0.96), rgba(14,21,17,0.96));
+  --panel-border: 1px solid rgba(255,213,79,0.30);
+  --panel-shadow: 0 10px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+  --cell-bg: rgba(255,255,255,0.06);
+  --cell-border: 1px solid rgba(255,255,255,0.08);
+  --gold: #FFD54F; --muted: #b0bec5;
+}
+
+/* ---- Menus / screens cover the whole window (they were clipped to the narrow board column on short phones) ---- */
+.main-menu, .pause-menu, .game-over-screen, .level-complete-screen, .settings-popup, .level-select-popup, .bug-modal-overlay, .confirm-modal-overlay {
+  position: fixed !important; inset: 0 !important; width: auto !important; height: auto !important; border-radius: 0 !important;
+  overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; box-sizing: border-box;
+}
+.pause-menu, .game-over-screen, .level-complete-screen, .settings-popup, .level-select-popup {
+  justify-content: center; justify-content: safe center; align-items: center;
+  padding: max(var(--u4), env(safe-area-inset-top)) var(--u4) max(var(--u4), env(safe-area-inset-bottom)) !important;
+  gap: var(--u2) !important;
+  background: radial-gradient(ellipse at 50% 30%, rgba(30,52,38,0.97) 0%, rgba(10,18,13,0.98) 70%) !important;
+}
+.main-menu { justify-content: center; justify-content: safe center; padding: var(--u3) var(--u4); }
+.pause-menu h2, .game-over-screen h2, .level-complete-screen h2, .settings-popup h2 {
+  margin: 0 0 var(--u2) !important; line-height: 1.15; text-align: center; letter-spacing: 0.01em; font-weight: 900;
+  font-size: clamp(20px, 4.4vh, 32px) !important;
+}
+
+/* ---- One button style: same width, height, radius and type everywhere ---- */
+.btn-main, #settingsPopup .settings-toggle {
+  border-radius: var(--r-btn) !important; font-weight: 800; letter-spacing: 0.01em; line-height: 1.1;
+  min-height: var(--btn-h); padding: 0 var(--u4); font-size: var(--btn-fs);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0) 48%, rgba(0,0,0,0.14)) !important;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.28), 0 6px 14px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.18);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.35); white-space: nowrap;
+}
+.btn-main:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 4px 0 rgba(0,0,0,0.28), 0 10px 20px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.2); }
+.btn-main:active { transform: translateY(2px) !important; box-shadow: 0 1px 0 rgba(0,0,0,0.3), inset 0 2px 4px rgba(0,0,0,0.25) !important; }
+.pause-menu .btn-main, #settingsPopup .btn-main, #settingsPopup .settings-toggle, #settingsPopup .settings-slider,
+#scoreSubmissionArea .btn-main, #postSubmissionArea .btn-main, .level-complete-buttons .btn-main, #levelSelectBackBtn, #leaderboardBackBtn {
+  width: var(--btn-w) !important; max-width: var(--btn-w) !important; margin: 0 !important;
+}
+#scoreSubmissionArea, #postSubmissionArea, .level-complete-buttons { width: var(--btn-w) !important; max-width: var(--btn-w) !important; gap: var(--u2) !important; }
+.btn-primary-cta { min-height: calc(var(--btn-h) + 6px); font-size: calc(var(--btn-fs) + 2px) !important; padding: 0 var(--u4) !important; }
+#scoreSubmissionArea .btn-sub-full { min-height: var(--btn-h); }
+a.btn-donate, .main-menu a.btn-donate, .game-over-screen .btn-donate, .level-complete-buttons .btn-donate {
+  width: auto !important; min-width: 0; min-height: 32px; padding: 0 var(--u4) !important; font-size: clamp(12px, 1.9vh, 15px) !important;
+  background-color: #A8692A !important; opacity: 0.95; margin: var(--u1) auto 0 !important; align-self: center;
+}
+.score-submit-row { gap: var(--u2); margin-top: 0; padding-top: var(--u2); width: 100%; box-sizing: border-box; }
+.score-submit-row #playerNameInput { min-height: 36px; border-radius: var(--r-btn); box-sizing: border-box; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.25) !important; }
+#scoreSubmissionArea .score-submit-row #submitScoreBtn { min-height: 36px; width: auto !important; max-width: none !important; font-size: 13px; padding: 0 var(--u3); }
+
+/* ---- Stat cards: label left, value right, same row height (Game Over / Level Complete) ---- */
+.game-over-stats, .level-complete-stats {
+  width: var(--btn-w) !important; max-width: var(--btn-w) !important; box-sizing: border-box; margin: 0 0 var(--u2) !important; padding: var(--u1) var(--u3) !important;
+  background: var(--panel-bg) !important; border: var(--panel-border) !important; border-radius: var(--r-card) !important; box-shadow: var(--panel-shadow);
+  display: flex; flex-direction: column; text-align: left;
+}
+.cdc-stat { display: flex; align-items: baseline; justify-content: space-between; gap: var(--u3); margin: 0 !important; padding: 7px 0;
+  font-size: clamp(13px, 2vh, 16px) !important; color: #e8eef0 !important; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.cdc-stat:last-child { border-bottom: none; }
+.cdc-stat > span { color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.78em; }
+.cdc-stat > b { color: #fff !important; font-weight: 900; font-size: 1.08em !important; font-variant-numeric: tabular-nums; text-align: right; }
+.cdc-stat.cdc-stat-best > b { color: var(--gold) !important; }
+.cdc-stat.cdc-stat-gold > b { color: var(--gold) !important; }
+.cdc-stat.is-new > span::after { content: ' NEW'; color: #1b1b1b; background: var(--gold); border-radius: 4px; padding: 0 4px; margin-left: 6px; font-size: 0.85em; letter-spacing: 0.04em; }
+#levelCompleteWaterNotice.cdc-stat { color: #81C784 !important; justify-content: center; }
+.level-complete-screen h2 { color: #66BB6A; }
+
+/* ---- Settings ---- */
+#settingsPopup .settings-slider { min-height: var(--btn-h); padding: 0 var(--u3); gap: var(--u2); border-radius: var(--r-btn); background: var(--cell-bg); border: var(--cell-border); font-size: clamp(13px, 2vh, 15px); }
+#settingsPopup .settings-slider span { min-width: 0; flex: 0 0 auto; white-space: nowrap; }
+#settingsPopup .settings-slider b { flex: 0 0 40px; font-variant-numeric: tabular-nums; }
+#settingsPopup .settings-toggle { background-color: #1E88E5; color: #fff; }
+
+/* ---- Tower / castle info panel: fixed card, equal cells, never wider than the screen ---- */
+.tower-popup { position: fixed !important; width: min(400px, calc(100vw - 16px)) !important; max-width: none !important; box-sizing: border-box;
+  bottom: max(8px, env(safe-area-inset-bottom)) !important; padding: var(--u3) !important; border-radius: var(--r-card) !important;
+  background: var(--panel-bg) !important; border: var(--panel-border) !important; box-shadow: var(--panel-shadow), 0 16px 36px rgba(0,0,0,0.5) !important; }
+.tower-popup .popup-header { font-size: clamp(14px, 2.4vh, 18px); margin: 0 0 var(--u2); padding: 0 28px var(--u2) 0; gap: var(--u2); line-height: 1.15; }
+.tower-popup .kill-count { flex: 0 0 auto; white-space: nowrap; font-size: 12px; }
+.tower-popup .popup-grid { gap: var(--u2); margin-top: var(--u2); }
+.tower-popup .popup-grid .stat-box { height: 44px; min-height: 44px; max-height: 44px; border-radius: var(--r-btn); background: var(--cell-bg); border: var(--cell-border); padding: 4px 2px; min-width: 0; overflow: hidden; }
+.tower-popup .stat-box span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); white-space: nowrap; }
+.tower-popup .stat-box b { font-size: clamp(12px, 2vh, 14px); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tower-popup .popup-grid > button, .tower-popup .popup-grid > .max-upgrade { height: 44px; min-height: 44px; max-height: 44px; border-radius: var(--r-btn); font-size: 12px; line-height: 1.1; min-width: 0;
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(0,0,0,0.12)); border: 1px solid rgba(255,255,255,0.14); }
+#closePopupBtn { top: 8px !important; right: 8px !important; }
+
+/* ---- Top bar (portrait): dark panel, six equal centred cells ---- */
+body:not(.cdc-wide) .game-container { background: linear-gradient(180deg, #24342a, #16211a); border-color: #3c5143 !important; }
+body:not(.cdc-wide) .game-info { background: var(--panel-bg); border: var(--panel-border); box-shadow: var(--panel-shadow); border-radius: 12px; padding: var(--u1) 6px; gap: var(--u1); min-height: 46px; margin-bottom: 6px; }
+body:not(.cdc-wide) .hud-half { gap: var(--u1); }
+body:not(.cdc-wide) .game-info .info-item { padding: 0; }
+body:not(.cdc-wide) .game-info .info-item.info-stat { background: var(--cell-bg); border: var(--cell-border); border-radius: 8px; height: 38px; justify-content: center; }
+body:not(.cdc-wide) .game-info .info-label { color: var(--muted); font-size: 9px; letter-spacing: 0.06em; margin: 0 0 1px; line-height: 1; }
+body:not(.cdc-wide) .game-info .info-value { color: #fff; font-size: 15px; line-height: 1.05; }
+body:not(.cdc-wide) .stat-gold .info-value { color: var(--gold); }
+body:not(.cdc-wide) .stat-hp .info-value { color: #FF8A80; }
+body:not(.cdc-wide) .game-info .pause-bar, body:not(.cdc-wide) #pauseBtn { height: 38px; max-width: 46px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.14)); box-shadow: 0 2px 0 rgba(0,0,0,0.3); font-size: 14px; }
+body:not(.cdc-wide) .tower-name { color: #dfe7e2; }
+body:not(.cdc-wide) .tower-price { color: var(--gold); }
+body:not(.cdc-wide) .btn-tower { background: #2f3b33; border-color: #56685b; }
+body:not(.cdc-wide) .btn-tower.selected { background: #4d6b53; border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+body:not(.cdc-wide) .controls.has-two-rows::after { background: rgba(255,255,255,0.15); }
+/* narrow board column (short phones): compact the cells so every number fits */
+.game-info.hud-compact { padding: 3px 4px !important; gap: 2px !important; min-height: 36px !important; }
+.game-info.hud-compact .hud-half { gap: 2px !important; }
+.game-info.hud-compact .info-item.info-stat { height: 30px !important; border-radius: 6px !important; }
+.game-info.hud-compact .info-label { font-size: 7px !important; letter-spacing: 0.02em !important; }
+.game-info.hud-compact .info-value { font-size: 11px !important; gap: 0 !important; }
+.game-info.hud-compact .round-total { font-size: 0.8em; }
+.game-info.hud-compact .pause-bar, .game-info.hud-compact #pauseBtn { height: 30px !important; font-size: 10px !important; padding: 0 !important; border-radius: 6px !important; }
+
+/* wide layout: same cells/buttons as portrait */
+body.cdc-wide .game-info, body.cdc-wide .controls { border: var(--panel-border); box-shadow: var(--panel-shadow); }
+body.cdc-wide .game-info .info-item.info-stat { border: var(--cell-border); }
+body.cdc-wide .game-info .pause-bar { border-radius: var(--r-btn); border: 1px solid rgba(255,255,255,0.16); background-image: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.14)); box-shadow: 0 3px 0 rgba(0,0,0,0.28); }
+
+/* ---- Main menu ---- */
+.main-menu-buttons { gap: var(--u2) !important; }
+#playBtn, #continueBtn, .menu-sub-row, .main-menu-buttons .btn-mode { width: var(--btn-w) !important; max-width: var(--btn-w) !important; }
+.menu-sub-row { gap: var(--u2) !important; }
+.menu-sub-row .btn-main { min-height: 38px; }
+.menu-sub-row.menu-feedback-row .btn-menu-feedback { min-height: 32px; padding: 0 var(--u1) !important; font-size: clamp(12px, 1.8vh, 14px) !important; }
+body.cdc-wide .main-menu-buttons .btn-main:not(.btn-donate), body.cdc-wide .menu-sub-row, body.cdc-wide #playBtn { width: clamp(240px, 28vw, 320px) !important; max-width: none !important; }
+
+/* ---- Level select ---- */
+.level-select-popup .world-header { width: min(320px, 100%); justify-content: space-between; gap: var(--u2); }
+.level-select-popup #levelSelectBackBtn { margin-top: var(--u3) !important; }
+
+/* ---- Short screens (phones in landscape / small windows) ---- */
+@media (max-height: 520px) {
+  :root { --btn-h: 34px; --btn-fs: 14px; }
+  .pause-menu h2, .game-over-screen h2, .level-complete-screen h2, .settings-popup h2 { font-size: 20px !important; margin-bottom: 2px !important; }
+  .pause-menu { display: none; }
+  .pause-menu[style*="flex"], .pause-menu[style*="block"] { display: grid !important; grid-template-columns: repeat(2, minmax(0, 150px)); justify-content: center; align-content: center; column-gap: var(--u2); }
+  .pause-menu h2 { grid-column: 1 / -1; }
+  .pause-menu .btn-main { width: 100% !important; max-width: none !important; }
+  .cdc-stat { padding: 4px 0; font-size: 13px !important; }
+  #settingsPopup .settings-slider { min-height: 34px; }
+}
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  /* two columns: title + stats | buttons */
+  .game-over-screen[style*="flex"], .level-complete-screen[style*="flex"] { display: grid !important; grid-template-columns: minmax(0, 240px) minmax(0, 240px); grid-auto-rows: min-content;
+    justify-content: center; align-content: center; column-gap: var(--u4); --btn-w: 100%; }
+  .game-over-screen h2, .game-over-stats, .level-complete-screen h2, .level-complete-stats { grid-column: 1; }
+  .game-over-screen > h2, .level-complete-screen > h2 { align-self: end; }
+  #scoreSubmissionArea, #postSubmissionArea, .level-complete-buttons { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
+  .game-over-screen > .btn-donate { grid-column: 1; }
+  #settingsPopup[style*="flex"] { display: grid !important; grid-template-columns: repeat(2, minmax(0, 170px)); justify-content: center; align-content: center; gap: var(--u2) !important; --btn-w: 100%; }
+  #settingsPopup > h2, #settingsPopup > .settings-slider { grid-column: 1 / -1; }
+  /* main menu: castle + title | buttons */
+  body:not(.cdc-wide) .main-menu { display: grid !important; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); grid-template-rows: 1fr auto 1fr; align-items: center; justify-items: center; column-gap: var(--u3); }
+  body:not(.cdc-wide) .main-menu[style*="display: none"] { display: none !important; }
+  body:not(.cdc-wide) .main-menu-icon { grid-column: 1; grid-row: 1; align-self: end; font-size: clamp(56px, 30vh, 150px) !important; margin: 0 !important; }
+  body:not(.cdc-wide) .main-menu h1 { grid-column: 1; grid-row: 2; font-size: clamp(16px, 5.6vh, 30px) !important; margin: 4px 0 0 !important; white-space: normal; }
+  body:not(.cdc-wide) .main-menu h1 span { display: block; }
+  body:not(.cdc-wide) .main-menu-buttons { grid-column: 2; grid-row: 1 / span 3; align-self: center; width: 100%; --btn-w: min(240px, 100%); }
+}
+.pause-menu, .game-over-screen, .level-complete-screen { background: radial-gradient(ellipse at 50% 35%, rgba(22,38,28,0.86) 0%, rgba(6,12,9,0.93) 75%) !important; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.global-gold-badge { position: fixed !important; top: calc(env(safe-area-inset-top, 0px) + 8px) !important; left: 8px !important; padding: 4px 12px !important; font-size: 14px !important; }
+.score-submit-row #playerNameInput { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
+#scoreSubmissionArea .score-submit-row #submitScoreBtn { flex: 0 0 auto !important; max-width: 55% !important; font-size: 12px !important; padding: 0 10px !important; }
+.menu-sub-row.menu-feedback-row { gap: 6px !important; }
+@media (max-height: 520px) {
+  .level-select-popup .world-header { margin: 0 0 4px !important; }
+  .level-select-popup .world-header h2 { font-size: 16px !important; margin: 0 !important; }
+  .level-select-popup .level-grid { width: min(300px, 100%) !important; max-width: none !important; gap: 5px !important; }
+  .level-select-popup .level-btn { aspect-ratio: auto !important; height: 34px !important; font-size: 12px !important; border-radius: 6px !important; }
+  .level-select-popup .world-slider, .level-select-popup .world-view { height: auto !important; max-height: none !important; }
+  .level-select-popup #levelSelectBackBtn { margin-top: 6px !important; }
+  .menu-sub-row.menu-feedback-row .btn-menu-feedback { font-size: 11px !important; padding: 0 2px !important; }
+  .level-select-popup .level-btn { flex-direction: row !important; gap: 3px; }
+}
+.btn-main.btn-mode-tutorial { background-image: linear-gradient(180deg, #4CAF50, #2E7D32) !important; }
+.btn-main.btn-mode-endless { background-image: linear-gradient(180deg, #8C68D0, #512DA8) !important; }
+.menu-sub-row.menu-feedback-row .btn-menu-feedback { letter-spacing: -0.01em; }
+@media (max-height: 520px) { .menu-sub-row.menu-feedback-row .btn-menu-feedback { font-size: 10.5px !important; } }
+body.cdc-wide .main-menu-buttons { align-items: center !important; } body.cdc-wide .main-menu-buttons .btn-link, body.cdc-wide .main-menu-buttons .btn-donate { align-self: center !important; }

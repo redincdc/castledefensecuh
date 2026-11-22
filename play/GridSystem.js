@@ -234,13 +234,17 @@ class GridSystem {
         return pathTiles ? this.tilesToCoords(pathTiles) : this.getStraightPath();
     }
 
-    findPathFrom(enemyX, enemyY, towers = [], enemySpecial = 'normal', walls = [], preferFewTurns = true) {
+    findPathFrom(enemyX, enemyY, towers = [], enemySpecial = 'normal', walls = [], preferFewTurns = true, raw = false) {
         const ts = GameConfig.Grid.tileSize;
         const endPos = { x: this.tiles[this.castleRow][this.castleCol].x + ts, y: this.tiles[this.castleRow][this.castleCol].y + ts };
         if (enemySpecial === 'fly') return [{ x: enemyX, y: enemyY }, endPos];
         const occupied = this.buildEnemyOccupiedSet(towers, walls, enemySpecial), enemyTile = this.getTileAtPosition(enemyX, enemyY);
         if (enemyTile) delete occupied[this.pathFinder.keyOf(enemyTile)];
-        const pathTiles = preferFewTurns ? this.pathFinder.findLowTurnPath({ x: enemyX, y: enemyY }, endPos, occupied, enemySpecial) : this.pathFinder.findPath({ x: enemyX, y: enemyY }, endPos, occupied, enemySpecial);
+        // v5.21: raw = tile-center to tile-center path (no corner-cutting smoothing); used to unstick big bodies
+        this.pathFinder._raw = !!raw;
+        let pathTiles;
+        try { pathTiles = preferFewTurns ? this.pathFinder.findLowTurnPath({ x: enemyX, y: enemyY }, endPos, occupied, enemySpecial) : this.pathFinder.findPath({ x: enemyX, y: enemyY }, endPos, occupied, enemySpecial); }
+        finally { this.pathFinder._raw = false; }
         return pathTiles ? this.tilesToCoords(pathTiles) : null;
     }
 

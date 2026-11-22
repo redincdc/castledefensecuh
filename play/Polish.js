@@ -102,7 +102,13 @@
             origRender.call(this);
             const s = scene();
             if (!s || s.gridSystem !== this || !s.castle || s.placementMode) return;
-            try { drawTrail(s, this); } catch (e) { /* cosmetic only */ }
+            try { drawTrail(s, this, 'ground'); } catch (e) { /* cosmetic only */ }
+        };
+        // v5.21: direction chevrons + a thin guide line are drawn again AFTER spikes/lilypads (game.js calls this
+        // between render pass 1 and 2) so the path stays readable through spike traps
+        window.CDC_drawTrailOver = function (s) {
+            if (!s || !s.castle || s.placementMode || !s.gridSystem) return;
+            try { drawTrail(s, s.gridSystem, 'over'); } catch (e) { /* cosmetic only */ }
         };
     }
 
@@ -112,7 +118,7 @@
         for (let i = 0; i < s.walls.length; i++) k += ';w' + (s.walls[i].x | 0) + ',' + (s.walls[i].y | 0);
         return k;
     }
-    function drawTrail(s, gs) {
+    function drawTrail(s, gs, layer) {
         const key = pathKey(s);
         if (key !== s._cdcTrailKey) {
             s._cdcTrailKey = key;
@@ -123,12 +129,16 @@
         ctx.save();
         ctx.lineJoin = 'round'; ctx.lineCap = 'round';
         const trace = () => { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); };
-        trace(); ctx.strokeStyle = 'rgba(92,62,30,0.45)'; ctx.lineWidth = ts * 0.74; ctx.stroke();
-        trace(); ctx.strokeStyle = 'rgba(181,140,86,0.78)'; ctx.lineWidth = ts * 0.6; ctx.stroke();
-        trace(); ctx.strokeStyle = 'rgba(214,180,124,0.45)'; ctx.lineWidth = ts * 0.26; ctx.stroke();
-        // marching chevrons show which way enemies walk
+        if (layer !== 'over') { // v5.21: lighter, see-through dirt band (was 0.45 / 0.78 / 0.45)
+            trace(); ctx.strokeStyle = 'rgba(92,62,30,0.2)'; ctx.lineWidth = ts * 0.74; ctx.stroke();
+            trace(); ctx.strokeStyle = 'rgba(181,140,86,0.32)'; ctx.lineWidth = ts * 0.6; ctx.stroke();
+            trace(); ctx.strokeStyle = 'rgba(214,180,124,0.2)'; ctx.lineWidth = ts * 0.26; ctx.stroke();
+            ctx.restore(); return;
+        }
+        // above spikes: faint dashed guide line + marching chevrons showing which way enemies walk
+        trace(); ctx.setLineDash([ts * 0.18, ts * 0.22]); ctx.strokeStyle = 'rgba(255,240,200,0.35)'; ctx.lineWidth = Math.max(1, ts * 0.05); ctx.stroke(); ctx.setLineDash([]);
         const t = performance.now() / 1000;
-        ctx.fillStyle = 'rgba(255,240,200,0.55)';
+        ctx.fillStyle = 'rgba(255,240,200,0.72)'; ctx.strokeStyle = 'rgba(60,40,15,0.5)'; ctx.lineWidth = Math.max(0.8, ts * 0.025);
         let acc = 0; const spacing = ts * 1.1, offset = (t * ts * 0.9) % spacing;
         for (let i = 1; i < pts.length; i++) {
             const a = pts[i - 1], b = pts[i], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy); if (!len) continue;
@@ -137,7 +147,7 @@
             for (; d < len; d += spacing) {
                 const x = a.x + dx * d / len, y = a.y + dy * d / len, c = ts * 0.1;
                 ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-                ctx.beginPath(); ctx.moveTo(c, 0); ctx.lineTo(-c, -c); ctx.lineTo(-c * 0.4, 0); ctx.lineTo(-c, c); ctx.closePath(); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(c, 0); ctx.lineTo(-c, -c); ctx.lineTo(-c * 0.4, 0); ctx.lineTo(-c, c); ctx.closePath(); ctx.fill(); ctx.stroke();
                 ctx.restore();
             }
             acc += len;
@@ -645,4 +655,66 @@
         scheduleBackdrop();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 0)); else setTimeout(boot, 0);
+})();
+
+/* v5.22: slim AA tracer missiles + compact top bar on narrow board columns. Visual only (no Math.random). */
+(function () {
+    'use strict';
+    // ---- AA missile: small finned rocket with a glowing exhaust trail (was a big plain yellow circle) ----
+    if (typeof Projectile !== 'undefined') {
+        const origRender = Projectile.prototype.render;
+        Projectile.prototype.render = function (ctx) {
+            if (!this.isRocket || this.isDead) return origRender.call(this, ctx);
+            const k = Math.max(0.55, ((window.GameConfig && GameConfig.Grid && GameConfig.Grid.tileSize) || 46) / 46);
+            // exhaust trail from the recorded positions (oldest -> newest)
+            const n = this.trail.length, pts = [];
+            for (let i = 0; i < n; i++) { const p = this.trail[(this._trailIdx + i) % n]; if (p.active) pts.push(p); }
+            pts.push({ x: this.x, y: this.y });
+            ctx.save();
+            ctx.lineCap = 'round';
+            for (let i = 1; i < pts.length; i++) {
+                const a = i / pts.length;
+                ctx.strokeStyle = `rgba(255, ${Math.round(140 + 90 * a)}, 60, ${0.08 + 0.5 * a})`;
+                ctx.lineWidth = (1 + 2.6 * a) * k;
+                ctx.beginPath(); ctx.moveTo(pts[i - 1].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+            }
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+            const L = 9 * k, W = 2.6 * k, fl = 0.75 + 0.25 * Math.sin((performance.now() + this.startX * 7) / 35);
+            // engine glow
+            const g = ctx.createRadialGradient(-L * 0.55, 0, 0, -L * 0.55, 0, 6 * k);
+            g.addColorStop(0, 'rgba(255,245,200,0.95)'); g.addColorStop(0.4, 'rgba(255,170,40,0.6)'); g.addColorStop(1, 'rgba(255,90,0,0)');
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(-L * 0.55, 0, 6 * k, 0, Math.PI * 2); ctx.fill();
+            // flame tongue
+            ctx.fillStyle = 'rgba(255,220,120,0.95)';
+            ctx.beginPath(); ctx.moveTo(-L * 0.5, -W * 0.45); ctx.lineTo(-L * 0.5 - 5 * k * fl, 0); ctx.lineTo(-L * 0.5, W * 0.45); ctx.closePath(); ctx.fill();
+            // fins
+            ctx.fillStyle = '#7a1f1f';
+            ctx.beginPath(); ctx.moveTo(-L * 0.45, -W * 0.5); ctx.lineTo(-L * 0.62, -W * 1.25); ctx.lineTo(-L * 0.18, -W * 0.5); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-L * 0.45, W * 0.5); ctx.lineTo(-L * 0.62, W * 1.25); ctx.lineTo(-L * 0.18, W * 0.5); ctx.closePath(); ctx.fill();
+            // body
+            const bg = ctx.createLinearGradient(0, -W / 2, 0, W / 2);
+            bg.addColorStop(0, '#f2f4f5'); bg.addColorStop(0.5, '#b8c0c6'); bg.addColorStop(1, '#6d777e');
+            ctx.fillStyle = bg; ctx.fillRect(-L * 0.5, -W / 2, L * 0.78, W);
+            // nose cone
+            ctx.fillStyle = '#d32f2f';
+            ctx.beginPath(); ctx.moveTo(L * 0.28, -W / 2); ctx.quadraticCurveTo(L * 0.5, -W * 0.2, L * 0.55, 0); ctx.quadraticCurveTo(L * 0.5, W * 0.2, L * 0.28, W / 2); ctx.closePath(); ctx.fill();
+            // band
+            ctx.fillStyle = '#FFD54F'; ctx.fillRect(L * 0.05, -W / 2, 1.2 * k, W);
+            ctx.restore();
+        };
+    }
+
+    // ---- Top bar: compact cells when the board column is narrow (short phones) ----
+    function fitHud() {
+        const hud = document.querySelector('.game-info'); if (!hud) return;
+        const wide = document.body.classList.contains('cdc-wide');
+        hud.classList.toggle('hud-compact', !wide && hud.clientWidth > 0 && hud.clientWidth < 300);
+    }
+    function bootHud() {
+        const hud = document.querySelector('.game-info'); if (!hud) { setTimeout(bootHud, 50); return; }
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fitHud).observe(hud);
+        window.addEventListener('resize', fitHud); fitHud();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootHud); else bootHud();
 })();

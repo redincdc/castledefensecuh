@@ -80,13 +80,42 @@ class SoundManager {
 
     _attachResumeListeners() {
         if (this._resumeBound || !window || !document) return;
+        // v5.21: keep retrying on every gesture until the context really runs (iOS only unlocks on touchend/click,
+        // and drops to 'interrupted' after calls / app switches)
         this._resumeBound = () => {
-            if (this.ctx && this.ctx.state === 'suspended') {
+            if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
                 this.ctx.resume().catch(() => {});
             }
         };
-        window.addEventListener('pointerdown', this._resumeBound, { once: true, passive: true });
-        window.addEventListener('keydown', this._resumeBound, { once: true, passive: true });
+        ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, this._resumeBound, { passive: true, capture: true }));
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) this._resumeBound(); });
+    }
+
+    // v5.21: music element -> fade gain -> musicBus (slider) -> speakers. <audio>.volume is ignored on iOS.
+    _routeMusic(audio) {
+        if (!audio || audio._cdcFade) return !!(audio && audio._cdcFade);
+        const ctx = this.ctx;
+        if (!ctx || !this.musicBus || !ctx.createMediaElementSource) return false;
+        try {
+            const src = ctx.createMediaElementSource(audio);
+            const fade = ctx.createGain();
+            fade.gain.value = 0;
+            src.connect(fade); fade.connect(this.musicBus);
+            audio._cdcFade = fade; audio._cdcSrc = src;
+            audio.volume = 1;
+            return true;
+        } catch (e) { console.warn('music routing unavailable, using element volume', e); return false; }
+    }
+    _musicRouted() { return !!(this.bgMusicAudio && this.bgMusicAudio._cdcFade && this.bgMusicAudio._cdcFade.context === this.ctx); }
+    _getMusicVol() {
+        if (!this.bgMusicAudio) return 0;
+        return this._musicRouted() ? this.bgMusicAudio._cdcFade.gain.value : this.bgMusicAudio.volume;
+    }
+    _setMusicVol(v) {
+        if (!this.bgMusicAudio) return;
+        v = Math.max(0, Math.min(1, v));
+        if (this._musicRouted()) { const g = this.bgMusicAudio._cdcFade.gain; g.cancelScheduledValues(0); g.value = v; }
+        else this.bgMusicAudio.volume = v;
     }
 
     _createContextIfNeeded() {
@@ -100,7 +129,15 @@ class SoundManager {
             return null;
         }
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.value = 0.35 * this.sfxVolume * 2;
+        this.masterGain.gain.value = 0.35;
+        // v5.21: the slider gains sit AFTER the bus limiter. Before, the SFX slider scaled the gain going INTO the
+        // compressor, which squashed the change away (12:1 above -24 dB), and music used <audio>.volume, which
+        // iOS (Safari and Chrome) ignores. Now both sliders drive WebAudio GainNodes on the way out.
+        this.sfxBus = this.ctx.createGain();
+        this.sfxBus.gain.value = this.sfxVolume * 2;
+        this.musicBus = this.ctx.createGain();
+        this.musicBus.gain.value = this.musicVolume * 2;
+        this.musicBus.connect(this.ctx.destination);
         // Bus limiter — automatically tames the mix when many towers fire at once,
         // instead of every simultaneous voice adding up to an ever-louder peak.
         this.compressor = this.ctx.createDynamicsCompressor();
@@ -110,8 +147,10 @@ class SoundManager {
         this.compressor.attack.value = 0.003;
         this.compressor.release.value = 0.25;
         this.masterGain.connect(this.compressor);
-        this.compressor.connect(this.ctx.destination);
+        this.compressor.connect(this.sfxBus);
+        this.sfxBus.connect(this.ctx.destination);
         this._attachResumeListeners();
+        if (this.bgMusicAudio) this._routeMusic(this.bgMusicAudio);
         return this.ctx;
     }
 
@@ -1362,6 +1401,8 @@ class SoundManager {
         audio.addEventListener('timeupdate', this._musicTimeUpdateBound);
         this.bgMusicAudio = audio;
         SoundManager._sharedBgMusic = audio;
+        this._createContextIfNeeded();
+        this._routeMusic(audio);
         return audio;
     }
 
@@ -1380,7 +1421,7 @@ class SoundManager {
         if (audio.currentTime >= audio.duration - 0.25 || audio.ended) {
             this._nearEndFading = false;
             try { audio.currentTime = 0; } catch (e) {}
-            audio.volume = 0;
+            this._setMusicVol(0);
             if (this.musicEnabled) {
                 const p = audio.play();
                 if (p && p.catch) p.catch(() => {});
@@ -1400,10 +1441,10 @@ class SoundManager {
             return;
         }
 
-        const startVol = this.bgMusicAudio.volume;
+        const startVol = this._getMusicVol();
         const diff = targetVol - startVol;
         if (Math.abs(diff) < 0.01) {
-            this.bgMusicAudio.volume = targetVol;
+            this._setMusicVol(targetVol);
             if (onComplete) onComplete();
             return;
         }
@@ -1424,10 +1465,10 @@ class SoundManager {
             currentStep++;
             let newVol = startVol + stepChange * currentStep;
             newVol = Math.max(0, Math.min(1, newVol));
-            this.bgMusicAudio.volume = newVol;
+            this._setMusicVol(newVol);
 
             if (currentStep >= steps || Math.abs(newVol - targetVol) < 0.01) {
-                this.bgMusicAudio.volume = targetVol;
+                this._setMusicVol(targetVol);
                 clearInterval(this._musicFadeInterval);
                 this._musicFadeInterval = null;
                 if (onComplete) onComplete();
@@ -1440,7 +1481,7 @@ class SoundManager {
         const audio = this._ensureMusicElement();
         if (!audio) return;
         if (audio.paused || audio.ended) {
-            audio.volume = 0;
+            this._setMusicVol(0);
             const p = audio.play();
             if (p && p.catch) {
                 p.catch(() => {
@@ -1503,7 +1544,7 @@ class SoundManager {
                     audio.src = src;
                 }
                 audio.loop = false;
-                audio.volume = 0;
+                this._setMusicVol(0);
                 this._nearEndFading = false;
                 try { audio.currentTime = 0; } catch (e) {}
 
@@ -1623,16 +1664,33 @@ class SoundManager {
     }
 
     // v5.19 volume sliders
-    musicTargetVolume() { return 0.25 * this.musicVolume * 2; }
+    // v5.21: when music runs through WebAudio the slider lives on musicBus, so fades target the fixed base level
+    musicTargetVolume() { return this._musicRouted() ? 0.25 : 0.25 * this.musicVolume * 2; }
+    _setBus(node, v) {
+        if (!node) return;
+        try { node.gain.cancelScheduledValues(0); node.gain.setValueAtTime(v, this.ctx.currentTime); } catch (e) {}
+        node.gain.value = v;
+    }
     setSfxVolume(v) {
         this.sfxVolume = Math.max(0, Math.min(1, v));
         this.sfxEnabled = this.sfxVolume > 0;
-        if (this.masterGain) this.masterGain.gain.value = 0.35 * this.sfxVolume * 2;
+        this._setBus(this.sfxBus, this.sfxVolume * 2);
     }
     setMusicVolume(v) {
         this.musicVolume = Math.max(0, Math.min(1, v));
         this.musicEnabled = this.musicVolume > 0;
-        if (this.bgMusicAudio && !this.bgMusicAudio.paused && !this._musicFadeInterval) this.bgMusicAudio.volume = Math.min(1, this.musicTargetVolume());
+        this._setBus(this.musicBus, this.musicVolume * 2);
+        if (!this._musicRouted() && this.bgMusicAudio && !this.bgMusicAudio.paused && !this._musicFadeInterval) this.bgMusicAudio.volume = Math.min(1, this.musicTargetVolume());
+    }
+    // v5.21: what the player actually hears (test/debug readout)
+    getEffectiveVolumes() {
+        const m = this.bgMusicAudio;
+        return {
+            sfxBus: this.sfxBus ? +this.sfxBus.gain.value.toFixed(3) : null,
+            musicBus: this.musicBus ? +this.musicBus.gain.value.toFixed(3) : null,
+            musicFade: m && m._cdcFade ? +m._cdcFade.gain.value.toFixed(3) : null,
+            musicRouted: this._musicRouted(), elementVolume: m ? m.volume : null, ctxState: this.ctx ? this.ctx.state : null
+        };
     }
 
     // v5.19: synthesized lightsaber ignite + short hum (no audio files, nothing copyrighted). Plays once.
@@ -1694,6 +1752,8 @@ class SoundManager {
         // 2. Play Castle Death sound effect at FULL max volume (1.0), cropping the first 0.7s offset
         try {
             if (this.sfxVolume <= 0) throw 0;
+            // v5.21: WebAudio first so the SFX slider applies on iOS too (element volume is ignored there)
+            if (this.ctx && this.ctx.state === 'running' && this.sfxBus) throw 0;
             const sfx = new Audio(encodeURI('audio/sfx/Fahhh Castle Death.mp3'));
             sfx.volume = Math.min(1, this.sfxVolume * 2);
             sfx.currentTime = 0.7; // Crop the first 0.7 seconds
