@@ -377,6 +377,9 @@
         }
         const type = s.selectedTowerType;
         if (!type) { ctx.restore(); return; }
+        // v5.23: never draw the placement ghost over an existing structure.
+        // Tapping a tower should just select it (handleMouseDown already does).
+        if (tile.occupied || tile.reserved) { ctx.restore(); return; }
         const enemyOn = s.enemies.some(e => !e.isDead && e.special !== 'fly' && s.gridSystem.getTileAtPosition(e.x, e.y) === tile);
         let ok = !tile.occupied && !tile.reserved && (type === 'lilypad' ? tile.water : !tile.water) && s.gameStateManager.gold >= costOf(type) && (type === 'spike' || !enemyOn);
         ctx.fillStyle = ok ? 'rgba(120,255,120,0.22)' : 'rgba(255,60,60,0.25)';

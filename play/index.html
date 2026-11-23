@@ -56,7 +56,7 @@
             <h1><span>Castle Defense</span> <span>Cuh</span></h1>
             <div class="main-menu-buttons">
                 <button type="button" class="btn-main" id="continueBtn" style="display:none; background: #FF9800;" onclick="if(window.gameScene && window.gameScene.loadGame) window.gameScene.loadGame();">⏯ Continue</button>
-                <button type="button" class="btn-main" id="playBtn" onclick="if(window.gameScene && window.gameScene.onPlayClicked) window.gameScene.onPlayClicked();">▶ New Game</button>
+                <button type="button" class="btn-main" id="playBtn" onclick="if(window.gameScene && window.gameScene.onPlayClicked) window.gameScene.onPlayClicked();">▶ Play</button>
                 <div class="menu-sub-row">
                 <button type="button" class="btn-main btn-menu-sub" id="settingsBtn" onclick="if(window.gameScene && window.gameScene.openSettingsMenu) window.gameScene.openSettingsMenu();">⚙ Settings</button>
                 <button type="button" class="btn-main btn-menu-sub" id="leaderboardBtn" onclick="if(window.gameScene && window.gameScene.openLeaderboard) window.gameScene.openLeaderboard();">🏆 Scores</button>
@@ -247,7 +247,7 @@
     <script src="enemies/Flyer.js"></script>
     <script src="enemies/Splitter.js"></script>
     <script src="enemies/Breaker.js"></script>
-    <script src="towers/Tower.js?v=5.22"></script>
+    <script src="towers/Tower.js?v=5.23"></script>
     <script src="towers/WallTower.js"></script>
     <script src="towers/SpikeTrap.js"></script>
     <script src="towers/MirrorTower.js"></script>
@@ -266,11 +266,11 @@
     <script src="BalanceAnalytics.js"></script>
     <script src="LogManager.js"></script>
     <script src="HeadlessSimulator.js"></script>
-    <script src="game.js?v=5.22"></script>
-    <script src="Polish.js?v=5.22"></script>
+    <script src="game.js?v=5.23"></script>
+    <script src="Polish.js?v=5.23"></script>
     <script src="Extras.js?v=5.22"></script>
     <script>
-        window.CDC_VERSION = '5.22';
+        window.CDC_VERSION = '5.23';
         window._cdcCrashSent = false;
         // v5.21: player bug reports / ideas are ALSO copied to FormSubmit. Fire-and-forget: never awaited, every
         // error swallowed, so it can't block or break the Formspree submit or the UI.

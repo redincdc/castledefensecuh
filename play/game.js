@@ -329,6 +329,8 @@ class GameScene {
         };
 
         this.onPlayClicked = () => {
+            // v5.23: if Modes.js is present, Play opens Tutorial / Worlds / Endless. Bots skip the submenu.
+            if (typeof this.openPlayMenu === 'function' && !window.__BOT) { this.openPlayMenu(); return; }
             const mainMenu = document.getElementById('mainMenu');
             const levelSelectScreen = document.getElementById('levelSelectScreen');
             if (mainMenu) mainMenu.style.display = 'none';
@@ -1435,7 +1437,7 @@ class GameScene {
             const dps = (tower.damage / 0.1).toFixed(1); // 100ms interval
             statsHtml = `
                 <div class="stat-box"><span>Attack</span> <b>${dps}dps</b></div>
-                <div class="stat-box"><span>Burst</span> <b>${(Tower.BURST.laser.on / 1000).toFixed(1)}s</b></div>
+                <div class="stat-box"><span>Burst</span> <b>${((tower.getBurstOnTime ? tower.getBurstOnTime() : Tower.BURST.laser.on) / 1000).toFixed(1)}s</b></div>
                 <button id="autoUpgradeTypeBtn" class="btn-auto ${autoUpgradeActive ? 'active' : ''}">
                     Auto: ${autoUpgradeActive ? 'ON' : 'OFF'}
                 </button>
@@ -2480,7 +2482,12 @@ class GameScene {
         controlsEl.style.alignContent = 'center';
         controlsEl.style.gridTemplateColumns = '';
         controlsEl.style.gridTemplateRows = '';
-        controlsEl.style.gap = '2px ' + gapX + 'px';
+
+        const rows = n ? Math.ceil(n / perRow) : 1;
+        // v5.23: a bit more vertical space between the two arsenal rows (player idea).
+        // Single row stays tight; the side panel in wide layout gets a modest 4px.
+        const gapY = wideLayout ? 4 : (rows >= 2 ? 8 : 2);
+        controlsEl.style.gap = gapY + 'px ' + gapX + 'px';
 
         const basis = (wideLayout || (n > 0 && n <= 7))
             ? 'calc((100% - ' + ((perRow - 1) * gapX) + 'px) / ' + perRow + ')'
@@ -2491,8 +2498,6 @@ class GameScene {
             w.style.width = basis;
             w.style.boxSizing = 'border-box';
         });
-
-        const rows = n ? Math.ceil(n / perRow) : 1;
         controlsEl.classList.toggle('has-two-rows', !wideLayout && rows === 2);
         controlsEl.classList.toggle('has-three-rows', !wideLayout && rows >= 3);
         document.querySelector('.game-container') && document.querySelector('.game-container').classList.toggle('arsenal-compact', true);
