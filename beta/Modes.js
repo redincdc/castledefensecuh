@@ -178,7 +178,7 @@
         9: ['Tanks + Speedies: slow and fast at once.', 'No new weapon. Mix Frost, Cannons and upgrades. Tap a tower to upgrade it.'],
         10: ['Flyers + Breakers.', '⚡ New: <b>Tesla</b> (90g) zaps lightning that jumps between enemies.'],
         11: ['Tanks + Flyers.', '🔥 New: <b>Flame</b> (100g) burns everything in its cone. Tap it to turn it.'],
-        12: ['Groupies, Tanks and Flyers. Final stage!', '🔴 New: <b>Laser</b> (450g) fires a beam across the whole board (not at flyers). Tap it to aim.'],
+        12: ['Groupies, Tanks and Flyers. Final stage!', '🔴 New: <b>Laser</b> (450g) fires a beam across the whole board (not at flyers). Tap it to aim.<br>🪞 New: <b>Mirror</b> bounces the laser beam. Tap it to turn it.'],
     };
     const Coach = {
         el: null, t: null,
@@ -203,6 +203,55 @@
         },
     };
     window.cdcStageCoach = Coach;
+
+    // v5.24: tutorial highlights: pulsing arsenal button for the stage's new weapon + pulsing target tile
+    // (a free tile next to the trail; Spikes go ON the trail; Buff goes next to a tower). Gone once it is built.
+    const HINT = { 2: ['frost'], 3: ['machinegun'], 4: ['mortar'], 5: ['upgrader'], 6: ['aa'], 7: ['sniper'], 8: ['spike'], 10: ['tesla'], 11: ['flame'], 12: ['laser', 'mirror'] };
+    function hintType(s) {
+        if (!s || s._cdcPlayMode !== 'tutorial' || window.__BOT || !s.gameStateManager || !s.castle) return null;
+        const list = HINT[s.selectedLevel || 1]; if (!list) return null;
+        const all = [].concat(s.towers || [], s.mirrors || [], s.spikes || []);
+        for (const t of list) if (!all.some(e => e.type === t || (t === 'mirror' && e.isMirror) || (t === 'spike' && e.isSpike))) return t;
+        return null;
+    }
+    function hintTile(s, type) {
+        const gs = s.gridSystem, pts = s._cdcTrail; if (!gs || !pts || pts.length < 2) return null;
+        const k = type + ':' + pts.length + ':' + s.towers.length + ':' + s.walls.length;
+        if (s._cdcHintKey === k && s._cdcHintTile && !s._cdcHintTile.occupied) return s._cdcHintTile;
+        const free = t => t && !t.occupied && !t.reserved && !t.water;
+        const onPath = new Set(); pts.forEach(p => { const t = gs.getTileAtPosition(p.x, p.y); if (t) onPath.add(t.row + ',' + t.col); });
+        const near = (t, set, d) => { for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++) if ((dr || dc) && set.has((t.row + dr) + ',' + (t.col + dc))) return true; return false; };
+        const anchors = new Set(); (s.towers || []).forEach(t => { const a = gs.getTileAtPosition(t.x, t.y); if (a) anchors.add(a.row + ',' + a.col); });
+        let best = null, bd = 1e9; const mid = pts[Math.floor(pts.length / 2)];
+        for (const row of gs.tiles) for (const t of row) {
+            if (!free(t)) continue;
+            const op = onPath.has(t.row + ',' + t.col);
+            if (type === 'spike') { if (!op) continue; } else { if (op || !near(t, onPath, 1)) continue; }
+            if (type === 'upgrader' && anchors.size && !near(t, anchors, 1)) continue;
+            const d = Math.hypot(t.x - mid.x, t.y - mid.y); if (d < bd) { bd = d; best = t; }
+        }
+        s._cdcHintKey = k; s._cdcHintTile = best; return best;
+    }
+    const origRender = P.render;
+    P.render = function () {
+        const r = origRender.apply(this, arguments);
+        try {
+            const type = hintType(this), def = type && BUILD_BUTTONS.find(b => b.type === type);
+            BUILD_BUTTONS.forEach(b => { const el = document.getElementById(b.id); if (el) el.classList.toggle('cdc-hl-btn', !!def && b === def && this.selectedTowerType !== type); });
+            if (def && this.selectedTowerType === type && !this.placementMode) {
+                const t = hintTile(this, type);
+                if (t) {
+                    const ts = GameConfig.Grid.tileSize, ctx = this.ctx, k = 0.5 + 0.5 * Math.sin(Date.now() / 260);
+                    ctx.save(); ctx.strokeStyle = 'rgba(255,213,79,' + (0.55 + 0.45 * k) + ')'; ctx.lineWidth = 3;
+                    ctx.fillStyle = 'rgba(255,213,79,' + (0.12 + 0.18 * k) + ')';
+                    const pad = 2 - k * 2; ctx.fillRect(t.x + pad, t.y + pad, ts - pad * 2, ts - pad * 2); ctx.strokeRect(t.x + pad, t.y + pad, ts - pad * 2, ts - pad * 2);
+                    ctx.restore();
+                }
+            }
+        } catch (e) { /* cosmetic only */ }
+        return r;
+    };
+
 
     // ---------------- Menu (v5.23: Play -> Tutorial / Worlds / Endless) ----------------
     function hideOverlays(s) {

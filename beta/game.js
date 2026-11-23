@@ -2429,6 +2429,8 @@ class GameScene {
         };
 
         const unlocked = unlockedFor(currentLvl);
+        // v5.24: Tutorial stage 12 (final) also offers the Mirror (the stage text mentions it); Worlds L12 unchanged
+        if (unlocked && currentLvl === 12 && this._cdcPlayMode === 'tutorial' && !unlocked.includes('mirror')) unlocked.push('mirror');
         BUILD_BUTTONS.forEach(b => {
             const el = document.getElementById(b.id); if (!el) return;
             const wrap = el.parentElement;

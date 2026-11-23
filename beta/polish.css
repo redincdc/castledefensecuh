@@ -336,3 +336,6 @@ body.cdc-wide .main-menu-buttons .btn-main:not(.btn-donate), body.cdc-wide .menu
 .menu-sub-row.menu-feedback-row .btn-menu-feedback { letter-spacing: -0.01em; }
 @media (max-height: 520px) { .menu-sub-row.menu-feedback-row .btn-menu-feedback { font-size: 10.5px !important; } }
 body.cdc-wide .main-menu-buttons { align-items: center !important; } body.cdc-wide .main-menu-buttons .btn-link, body.cdc-wide .main-menu-buttons .btn-donate { align-self: center !important; }
+/* v5.24 tutorial highlight: pulsing arsenal button */
+.cdc-hl-btn { animation: cdcHlBtn 0.9s ease-in-out infinite; position: relative; z-index: 5; }
+@keyframes cdcHlBtn { 0%,100% { box-shadow: 0 0 0 2px #FFD54F, 0 0 4px rgba(255,213,79,0.4); transform: scale(1); } 50% { box-shadow: 0 0 0 3px #FFD54F, 0 0 16px rgba(255,213,79,0.95); transform: scale(1.08); } }
