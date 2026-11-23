@@ -2446,6 +2446,10 @@ class GameScene {
             const p = wrap.querySelector('.tower-price'); if (p) p.textContent = b.cost + 'g';
         });
         this._layoutArsenal();
+        // Unlock changes can add a second arsenal row; refit the board so it stays on-screen.
+        if (typeof layoutPlayfield === 'function') {
+            requestAnimationFrame(() => { try { layoutPlayfield(); } catch (e) {} });
+        }
     }
 
     _layoutArsenal() {
@@ -3679,7 +3683,9 @@ function layoutPlayfield() {
 
         const tileSizeW = Math.floor(boardW / columns);
         const tileSizeH = Math.floor(remainingH / targetRows);
-        const tileSize = Math.max(18, Math.min(tileSizeW, tileSizeH));
+        // v5.26: never force 18px tiles when that would push the HUD or arsenal off-screen
+        // (366x318 and other short viewports). Prefer 18px when there is room; otherwise shrink to fit, floor 8px.
+        let tileSize = Math.max(8, Math.min(tileSizeW, tileSizeH));
 
         if (window._originalGameConfig) {
             const base = JSON.parse(JSON.stringify(window._originalGameConfig));
@@ -3701,12 +3707,35 @@ function layoutPlayfield() {
             container.style.maxWidth = '';
             container.style.setProperty('--cdc-side-w', sideW + 'px');
         } else if (!isAndroid) {
-            container.style.maxWidth = aligned + 'px';
+            // Only tighten to the board width when width, not height, is the constraint.
+            // Tightening on short screens squeezed the arsenal into an unreadable column at 366x318.
+            if (tileSizeW <= tileSizeH) container.style.maxWidth = aligned + 'px';
+            else container.style.maxWidth = '';
         }
 
         // Re-flow the arsenal into the new width and re-fit labels
         if (window.gameScene && typeof window.gameScene._layoutArsenal === 'function') {
             window.gameScene._layoutArsenal();
+        }
+
+        // If a two-row arsenal appeared after the first pass, shrink tiles so chrome stays on-screen.
+        if (!wide) {
+            const chromeNow = _outerHeight(hud) + _outerHeight(controls) + canvasMargins + canvasBorders;
+            const fitH = Math.floor((contentH - chromeNow) / targetRows);
+            if (Number.isFinite(fitH) && fitH < tileSize) {
+                tileSize = Math.max(8, fitH);
+                canvas.width = columns * tileSize;
+                canvas.style.width = canvas.width + 'px';
+                canvas.height = targetRows * tileSize;
+                canvas.style.height = canvas.height + 'px';
+                if (!isAndroid) {
+                    if (tileSizeW <= tileSizeH) container.style.maxWidth = (canvas.width + padX) + 'px';
+                    else container.style.maxWidth = '';
+                }
+                if (window.gameScene && typeof window.gameScene._layoutArsenal === 'function') {
+                    window.gameScene._layoutArsenal();
+                }
+            }
         }
 
         GameConfig.Grid.columns = columns;
