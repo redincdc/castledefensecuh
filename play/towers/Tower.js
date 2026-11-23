@@ -80,7 +80,7 @@ class Tower extends BuildableEntity {
 
         if (startLevel > 0) {
             for (let lvl = 0; lvl < startLevel; lvl++) {
-                this.totalInvested += this.cost * POW_2[Math.min(lvl, 6)];
+                this.totalInvested += this.isLaser ? Math.round(this.cost * POW_2[Math.min(lvl, 6)] * 0.7) : this.cost * POW_2[Math.min(lvl, 6)];
             }
             this.upgradeLevel = startLevel;
             this.recalcStats();
@@ -97,8 +97,14 @@ class Tower extends BuildableEntity {
         return (this.flameDirection / num) * Math.PI * 2;
     }
 
-    getUpgradeCost() { return this.cost * POW_2[Math.min(this.upgradeLevel, 6)]; }
-    getUpgradeTime() { return this.baseUpgradeTime * POW_2[Math.min(this.upgradeLevel, 6)]; }
+    getUpgradeCost() {
+        const c = this.cost * POW_2[Math.min(this.upgradeLevel, 6)];
+        return this.isLaser ? Math.round(c * 0.7) : c; // v5.23: laser upgrades 30% cheaper
+    }
+    getUpgradeTime() {
+        const t = this.baseUpgradeTime * POW_2[Math.min(this.upgradeLevel, 6)];
+        return this.isLaser ? t * 0.7 : t; // v5.23: laser upgrades 30% faster
+    }
 
     getDps() {
         if (this.isTesla) return (this.shockDamage / (this.shockInterval / 1000)).toFixed(1);
@@ -394,13 +400,21 @@ class Tower extends BuildableEntity {
 
     // v5.22: always-on weapons (flamethrower, laser) fire in bursts with a short cooldown.
     // Upgrades shorten the cooldown a little (-6% per level). Cycle is game-time based (deterministic).
+    // v5.23: laser on-time grows +10% per upgrade level, capped at +50% (3.6s at L5).
+    getBurstOnTime() {
+        const B = Tower.BURST[this.type];
+        if (!B) return 0;
+        if (this.isLaser) return B.on * Math.min(1.5, 1 + 0.1 * (this.upgradeLevel || 0));
+        return B.on;
+    }
     _burstActive(now) {
         const B = Tower.BURST[this.type];
         if (!B) { this.burstCooling = false; return true; }
         if (this._burstT0 === undefined || now < this._burstT0) this._burstT0 = now;
-        const off = B.off * Math.max(0.6, 1 - 0.06 * (this.upgradeLevel || 0)), cyc = B.on + off, ph = (now - this._burstT0) % cyc;
-        this.burstCooling = ph >= B.on;
-        this.burstCharge = this.burstCooling ? (ph - B.on) / off : 1;
+        const on = this.getBurstOnTime();
+        const off = B.off * Math.max(0.6, 1 - 0.06 * (this.upgradeLevel || 0)), cyc = on + off, ph = (now - this._burstT0) % cyc;
+        this.burstCooling = ph >= on;
+        this.burstCharge = this.burstCooling ? (ph - on) / off : 1;
         return !this.burstCooling;
     }
 
@@ -1453,13 +1467,34 @@ class Tower extends BuildableEntity {
             }
             ctx.shadowBlur = 0; ctx.restore();
         }
-        if ((this.isLaser || this.isFlame) && this.isBuilt && !this.isUpgrading && this.burstCooling) {
+        if (this.isFlame && this.isBuilt && !this.isUpgrading && this.burstCooling) {
             // v5.22 cooldown: thin recharge ring + cooling nozzle glow
             const r = this.size * 0.58, a0 = -Math.PI / 2, ch = Math.max(0, Math.min(1, this.burstCharge || 0));
             ctx.save(); ctx.lineCap = 'round';
             ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.arc(this.x, this.y, r, 0, Math.PI * 2); ctx.stroke();
-            ctx.strokeStyle = this.isFlame ? 'rgba(255,183,77,1)' : 'rgba(128,222,255,1)'; ctx.lineWidth = 2.5;
+            ctx.strokeStyle = 'rgba(255,183,77,1)'; ctx.lineWidth = 2.5;
             ctx.beginPath(); ctx.arc(this.x, this.y, r, a0, a0 + ch * Math.PI * 2); ctx.stroke();
+            ctx.restore();
+        }
+        if (this.isLaser && this.isBuilt && !this.isUpgrading && this.burstCooling) {
+            // v5.23: two cartoon steam jets vent from the sides while the laser cools (replaces the recharge ring)
+            const t = Date.now() / 1000, sz = this.size, ang = this.laserAngle;
+            ctx.save(); ctx.translate(this.x, this.y);
+            for (const side of [-1, 1]) {
+                const a = ang + side * (Math.PI / 2);
+                const ox = Math.cos(a) * sz * 0.28, oy = Math.sin(a) * sz * 0.28;
+                for (let i = 0; i < 4; i++) {
+                    const u = ((t * 1.7 + i * 0.25 + side * 0.12) % 1);
+                    const px = ox + Math.cos(a) * u * sz * 0.4;
+                    const py = oy + Math.sin(a) * u * sz * 0.4 - u * sz * 0.22;
+                    const rad = (3 + u * 8) * (sz / 56);
+                    const alpha = (1 - u) * 0.7;
+                    ctx.fillStyle = 'rgba(200, 222, 235,' + alpha + ')';
+                    ctx.beginPath(); ctx.arc(px, py, rad, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'rgba(255, 255, 255,' + (alpha * 0.7) + ')';
+                    ctx.beginPath(); ctx.arc(px - rad * 0.22, py - rad * 0.22, rad * 0.5, 0, Math.PI * 2); ctx.fill();
+                }
+            }
             ctx.restore();
         }
         if (this.isLaser && !this.burstCooling && this.laserPath && this.laserPath.length >= 2) {
