@@ -247,7 +247,7 @@
     <script src="enemies/Flyer.js"></script>
     <script src="enemies/Splitter.js"></script>
     <script src="enemies/Breaker.js"></script>
-    <script src="towers/Tower.js?v=5.23"></script>
+    <script src="towers/Tower.js?v=5.24"></script>
     <script src="towers/WallTower.js"></script>
     <script src="towers/SpikeTrap.js"></script>
     <script src="towers/MirrorTower.js"></script>
@@ -266,11 +266,11 @@
     <script src="BalanceAnalytics.js"></script>
     <script src="LogManager.js"></script>
     <script src="HeadlessSimulator.js"></script>
-    <script src="game.js?v=5.23"></script>
-    <script src="Polish.js?v=5.23"></script>
+    <script src="game.js?v=5.24"></script>
+    <script src="Polish.js?v=5.24"></script>
     <script src="Extras.js?v=5.22"></script>
     <script>
-        window.CDC_VERSION = '5.23';
+        window.CDC_VERSION = '5.24';
         window._cdcCrashSent = false;
         // v5.21: player bug reports / ideas are ALSO copied to FormSubmit. Fire-and-forget: never awaited, every
         // error swallowed, so it can't block or break the Formspree submit or the UI.
@@ -337,6 +337,7 @@
             window.cdcSendFeedback(payload);
         };
         window.onerror = function(msg, url, line, col, error) {
+            if (/ResizeObserver loop/.test(String(msg || ''))) return false; // v5.24: benign browser warning, not a crash
             window.cdcReportCrash('CRASH', msg || 'Unknown Error', {
                 file: url ? String(url).split('/').pop() : 'unknown',
                 line: line,
