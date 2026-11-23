@@ -103,7 +103,7 @@ class Tower extends BuildableEntity {
     }
     getUpgradeTime() {
         const t = this.baseUpgradeTime * POW_2[Math.min(this.upgradeLevel, 6)];
-        return this.isLaser ? t * 0.7 : t; // v5.23: laser upgrades 30% faster
+        return this.isLaser ? t * 0.4 : t; // v5.24: laser upgrades 60% faster than base (v5.23 was 30%)
     }
 
     getDps() {
@@ -404,12 +404,14 @@ class Tower extends BuildableEntity {
     getBurstOnTime() {
         const B = Tower.BURST[this.type];
         if (!B) return 0;
-        if (this.isLaser) return B.on * Math.min(1.5, 1 + 0.1 * (this.upgradeLevel || 0));
-        return B.on;
+        // v5.24: flamethrower gets the same +10%/level (cap +50%) as the laser
+        return B.on * Math.min(1.5, 1 + 0.1 * (this.upgradeLevel || 0));
     }
     _burstActive(now) {
         const B = Tower.BURST[this.type];
         if (!B) { this.burstCooling = false; return true; }
+        // v5.24: at the final (max) upgrade there is no cooldown, fires continuously
+        if (this.upgradeLevel >= this.maxUpgrades) { this.burstCooling = false; this.burstCharge = 1; return true; }
         if (this._burstT0 === undefined || now < this._burstT0) this._burstT0 = now;
         const on = this.getBurstOnTime();
         const off = B.off * Math.max(0.6, 1 - 0.06 * (this.upgradeLevel || 0)), cyc = on + off, ph = (now - this._burstT0) % cyc;
@@ -1467,18 +1469,9 @@ class Tower extends BuildableEntity {
             }
             ctx.shadowBlur = 0; ctx.restore();
         }
-        if (this.isFlame && this.isBuilt && !this.isUpgrading && this.burstCooling) {
-            // v5.22 cooldown: thin recharge ring + cooling nozzle glow
-            const r = this.size * 0.58, a0 = -Math.PI / 2, ch = Math.max(0, Math.min(1, this.burstCharge || 0));
-            ctx.save(); ctx.lineCap = 'round';
-            ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.arc(this.x, this.y, r, 0, Math.PI * 2); ctx.stroke();
-            ctx.strokeStyle = 'rgba(255,183,77,1)'; ctx.lineWidth = 2.5;
-            ctx.beginPath(); ctx.arc(this.x, this.y, r, a0, a0 + ch * Math.PI * 2); ctx.stroke();
-            ctx.restore();
-        }
-        if (this.isLaser && this.isBuilt && !this.isUpgrading && this.burstCooling) {
-            // v5.23: two cartoon steam jets vent from the sides while the laser cools (replaces the recharge ring)
-            const t = Date.now() / 1000, sz = this.size, ang = this.laserAngle;
+        if ((this.isLaser || this.isFlame) && this.isBuilt && !this.isUpgrading && this.burstCooling) {
+            // v5.23: two cartoon steam jets vent from the sides while the laser cools (laser v5.23, flamethrower v5.24; replaces the recharge ring)
+            const t = Date.now() / 1000, sz = this.size, ang = this.isFlame ? this.flameAngle : this.laserAngle;
             ctx.save(); ctx.translate(this.x, this.y);
             for (const side of [-1, 1]) {
                 const a = ang + side * (Math.PI / 2);
