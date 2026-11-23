@@ -120,11 +120,29 @@ body.cdc-wide #playBtn, body.cdc-wide #continueBtn, body.cdc-wide #levelSelectMe
   background-size: contain; background-repeat: no-repeat; background-position: center; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
 body.cdc-dragging, body.cdc-dragging * { cursor: grabbing !important; }
 .btn-tower { touch-action: manipulation; -webkit-user-drag: none; user-select: none; }
+
+/* v5.20: Tutorial / Endless mode buttons. v5.23: Play submenu adds Worlds. */
+.play-menu { display: none; flex-direction: column; align-items: center; gap: var(--u2, 8px); width: 100%; }
+.main-menu.is-play-open #playMenu { display: flex !important; }
+.main-menu.is-play-open .main-menu-buttons > :not(#playMenu) { display: none !important; }
+.main-menu-buttons .btn-mode { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 72px; padding: 10px 16px; line-height: 1.1; }
+.btn-mode .mode-title { font-size: clamp(20px, 4.4vh, 30px); font-weight: 900; }
+.btn-mode .mode-sub { font-size: clamp(11px, 2vh, 14px); font-weight: 600; opacity: 0.9; }
+.btn-mode-tutorial { background: linear-gradient(180deg, #43A047, #2E7D32) !important; }
+.btn-mode-worlds { background: linear-gradient(180deg, #42A5F5, #1565C0) !important; }
+.btn-mode-endless { background: linear-gradient(180deg, #7E57C2, #512DA8) !important; }
+#playMenuBackBtn { width: var(--btn-w) !important; max-width: var(--btn-w) !important; }
+.btn-mode.cdc-nudge { animation: cdcNudge 1.6s ease-in-out infinite; box-shadow: 0 0 0 3px #FFD54F, 0 0 18px rgba(255,213,79,0.7); }
+@keyframes cdcNudge { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+.mode-hint { color: #FFD54F; font-weight: 800; font-size: clamp(12px, 2.2vh, 15px); min-height: 1em; }
+.cdc-stage-coach .cdc-coach-text { line-height: 1.45; }
 /* v5.21: Report Bug + Ideas? on the main menu (same compact row as Settings / Scores) */
 .menu-sub-row.menu-feedback-row .btn-menu-feedback { font-size: clamp(11px, 1.7vh, 15px); white-space: nowrap; padding: clamp(5px, 1vh, 9px) 4px; }
 .menu-sub-row.menu-feedback-row #menuReportBugBtn { background: #B86E12 !important; }
 .menu-sub-row.menu-feedback-row #menuIdeaBtn { background: #6C3483 !important; }
 @media (max-height: 480px) { body:not(.cdc-wide) .main-menu-icon { font-size: clamp(64px, 26vh, 144px); margin-bottom: 4px; } }
+@media (max-height: 480px) { body:not(.cdc-wide) .main-menu-buttons .btn-mode { min-height: 44px; padding: 4px 12px; } body:not(.cdc-wide) .btn-mode .mode-title { font-size: 18px; } body:not(.cdc-wide) .btn-mode .mode-sub { font-size: 10px; } body:not(.cdc-wide) .mode-hint:empty { display: none; } body:not(.cdc-wide) .main-menu-buttons { gap: 8px; } body:not(.cdc-wide) .main-menu h1 { margin: 2px 0 6px; } }
+@media (max-height: 360px) { body:not(.cdc-wide) .btn-mode .mode-sub { display: none; } body:not(.cdc-wide) .main-menu-buttons .btn-mode { min-height: 32px; } body:not(.cdc-wide) .mode-hint { font-size: 11px; } body:not(.cdc-wide) .main-menu.is-play-open .main-menu-icon { display: none; } body:not(.cdc-wide) .main-menu.is-play-open h1 { font-size: clamp(18px, 6vh, 28px); margin: 0 0 4px; } }
 
 /* =====================================================================
    v5.22 UI cleanup: one spacing grid (4/8/12/16px), one button style,
@@ -313,7 +331,11 @@ body.cdc-wide .main-menu-buttons .btn-main:not(.btn-donate), body.cdc-wide .menu
   .level-select-popup .level-btn { flex-direction: row !important; gap: 3px; }
 }
 .btn-main.btn-mode-tutorial { background-image: linear-gradient(180deg, #4CAF50, #2E7D32) !important; }
+.btn-main.btn-mode-worlds { background-image: linear-gradient(180deg, #42A5F5, #1565C0) !important; }
 .btn-main.btn-mode-endless { background-image: linear-gradient(180deg, #8C68D0, #512DA8) !important; }
 .menu-sub-row.menu-feedback-row .btn-menu-feedback { letter-spacing: -0.01em; }
 @media (max-height: 520px) { .menu-sub-row.menu-feedback-row .btn-menu-feedback { font-size: 10.5px !important; } }
 body.cdc-wide .main-menu-buttons { align-items: center !important; } body.cdc-wide .main-menu-buttons .btn-link, body.cdc-wide .main-menu-buttons .btn-donate { align-self: center !important; }
+/* v5.24 tutorial highlight: pulsing arsenal button */
+.cdc-hl-btn { animation: cdcHlBtn 0.9s ease-in-out infinite; position: relative; z-index: 5; }
+@keyframes cdcHlBtn { 0%,100% { box-shadow: 0 0 0 2px #FFD54F, 0 0 4px rgba(255,213,79,0.4); transform: scale(1); } 50% { box-shadow: 0 0 0 3px #FFD54F, 0 0 16px rgba(255,213,79,0.95); transform: scale(1.08); } }

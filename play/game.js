@@ -1183,7 +1183,7 @@ class GameScene {
                 this.setupCastle(tile);
                 this.placementMode = false;
                 this._entitiesDirty = true;
-                const firstCd = (this.selectedLevel === 10) ? 40 : (this.selectedLevel >= 11 && this.selectedLevel <= 25) ? 30 : 10;
+                const firstCd = (this.selectedLevel === 99) ? 20 : (this.selectedLevel === 10) ? 40 : (this.selectedLevel >= 11 && this.selectedLevel <= 25) ? 30 : 10;
                 this.startCountdown(firstCd, () => this.startNextRound());
             }
             return;
@@ -1862,7 +1862,7 @@ class GameScene {
             }
 
             // World 1 Level Completion: Round 10 is the final boss round of the level
-            if (this.gameStateManager.round === 10) {
+            if (this.gameStateManager.round === 10 && this.selectedLevel !== 99) {
                 this.completeLevelVictory();
                 return;
             }
@@ -1871,7 +1871,8 @@ class GameScene {
         let inter = 2;
         /*AUTOBAL_INTER_START*/
         const autobalInter = {15:8, 16:2, 17:2, 18:6, 19:6, 20:8, 25:8};
-        if ((this.selectedLevel || 1) === 10 && justFinished <= 3) inter = 10;
+        if (this.selectedLevel === 99) inter = this.endlessIntermission ? this.endlessIntermission(justFinished) : 4;
+        else if ((this.selectedLevel || 1) === 10 && justFinished <= 3) inter = 10;
         else if (autobalInter[this.selectedLevel || 1] != null) inter = autobalInter[this.selectedLevel || 1];
             /*AUTOBAL_INTER_END*/
         this.startCountdown(inter, () => this.startNextRound());
@@ -1981,6 +1982,9 @@ class GameScene {
             round = levelOrRound || 1;
             countMult = roundOrCountMult || 1.0;
         }
+
+        // v5.20: Endless mode (level 99) builds its own mixed waves (see Modes.js)
+        if (level === 99 && this.getEndlessComposition) return this.getEndlessComposition(round, countMult);
 
         const totalRounds = 10;
         const isBossRound = (round === totalRounds);
@@ -2200,7 +2204,9 @@ class GameScene {
 
             // 1.6x exponential HP scaling for Flyer/Level 6, 1.15x for Breaker/Level 7
             let levelHpBonus = Math.min(10, round);
-            if (level === 1) {
+            if (level === 99 && this.endlessHpBonus) {
+                levelHpBonus = this.endlessHpBonus(type, round); // v5.20 Endless curve (Modes.js)
+            } else if (level === 1) {
                 levelHpBonus = 1 + (round - 1) * 0.5; // Final middle-ground linear growth for Level 1 equilibrium
             } else if (level === 3) {
                 levelHpBonus = 1 + (round - 1) * 0.2; // Gentler 20% linear growth for Level 3 Splitters
@@ -2274,7 +2280,9 @@ class GameScene {
             const dynamicSizeMult = 1 + (maxSizeCap - 1) * (1 - 1 / Math.pow(totalHpMult, scalePower));
             enemy.size *= dynamicSizeMult;
 
-            if (level === 2 || type === 'speedy') {
+            if (level === 99) {
+                enemy.speed *= Math.min(1.6, 1 + (round - 1) * 0.02); // v5.20 Endless: capped speed ramp
+            } else if (level === 2 || type === 'speedy') {
                 enemy.speed = enemy.speed * Math.pow(1.1, round - 1);
             } else {
                 enemy.speed *= Math.min(1.5, 1 + (round - 1) * 0.02);
@@ -2421,6 +2429,8 @@ class GameScene {
         };
 
         const unlocked = unlockedFor(currentLvl);
+        // v5.24: Tutorial stage 12 (final) also offers the Mirror (the stage text mentions it); Worlds L12 unchanged
+        if (unlocked && currentLvl === 12 && this._cdcPlayMode === 'tutorial' && !unlocked.includes('mirror')) unlocked.push('mirror');
         BUILD_BUTTONS.forEach(b => {
             const el = document.getElementById(b.id); if (!el) return;
             const wrap = el.parentElement;
@@ -2619,7 +2629,7 @@ class GameScene {
             Android.fetchGlobalScores();
         } else if (typeof firebase !== 'undefined' && firebase.database) {
             this.initWebFirebase();
-            firebase.database().ref("leaderboard").orderByChild("rounds").limitToLast(50).once("value", snapshot => {
+            firebase.database().ref("leaderboard").orderByChild("seconds").limitToLast(50).once("value", snapshot => {
                 const scores = [];
                 snapshot.forEach(child => {
                     const val = child.val();
@@ -2792,8 +2802,8 @@ class GameScene {
                 return;
             }
 
-            // Safe numeric sort: rounds desc, then seconds desc
-            scores.sort((a, b) => (Number(b.rounds || 0) - Number(a.rounds || 0)) || (Number(b.seconds || 0) - Number(a.seconds || 0)));
+            // v5.20: time survived is the high score (seconds desc, then rounds desc)
+            scores.sort((a, b) => (Number(b.seconds || 0) - Number(a.seconds || 0)) || (Number(b.rounds || 0) - Number(a.rounds || 0)));
 
             list.innerHTML = scores.map((s, i) => `
                 <div class="leaderboard-entry">
