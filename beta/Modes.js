@@ -1,6 +1,6 @@
 // v5.20: two modes. TUTORIAL = the old Levels 1-12 as 12 short stages (one new enemy / weapon each, with coach
 // cards). ENDLESS = every weapon unlocked, ever-harder mixed waves, time survived is the high score.
-// The old level data (L13-L25) stays in game.js untouched but is no longer reachable from the menu.
+// v5.23: Play opens Tutorial / Worlds / Endless. Worlds uses the old L1-25 level data and unlocks.
 (function () {
     'use strict';
     if (typeof GameScene === 'undefined') return;
@@ -87,7 +87,7 @@
             if (a) a.textContent = '♾ Endless'; if (b) b.textContent = '';
             const best = parseInt(localStorage.getItem('td_endless_best') || 0);
             if (this._el && this._el.hudHighScore) this._el.hudHighScore.textContent = fmt(best);
-        } else {
+        } else if (this._cdcPlayMode === 'tutorial') {
             const lvl = this.selectedLevel || 1;
             if (a && lvl <= TUT_STAGES) a.textContent = 'Tutorial ' + lvl + '/' + TUT_STAGES;
             Coach.stage(this, lvl);
@@ -115,7 +115,7 @@
     P.startEndless = function () {
         ['mainMenu', 'levelSelectScreen', 'waterPopup', 'levelCompleteScreen', 'gameOverScreen'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
         document.body.classList.remove('modal-open');
-        this.selectedLevel = ENDLESS; this.waterEnabled = false;
+        this._cdcPlayMode = 'endless'; this.selectedLevel = ENDLESS; this.waterEnabled = false;
         try { localStorage.removeItem('td_saved_game'); } catch (e) {}
         this.start();
     };
@@ -125,25 +125,43 @@
     const origLS = P.setupLevelSelect;
     P.setupLevelSelect = function () {
         const r = origLS.apply(this, arguments);
-        document.querySelectorAll('#levelGrid1 .level-btn').forEach((btn, i) => { if (i >= TUT_STAGES) btn.style.display = 'none'; });
-        const t = document.getElementById('worldTitle'); if (t) t.textContent = '📘 Tutorial stages';
-        ['prevWorldBtn', 'nextWorldBtn'].forEach(id => { const e = document.getElementById(id); if (e) e.style.visibility = 'hidden'; });
-        const w2 = document.getElementById('world2View'); if (w2) w2.style.display = 'none';
+        const worlds = this._cdcPlayMode === 'worlds' || window.__BOT;
+        document.querySelectorAll('#levelGrid1 .level-btn').forEach((btn, i) => {
+            btn.style.display = (worlds || i < TUT_STAGES) ? '' : 'none';
+        });
+        const t = document.getElementById('worldTitle');
+        if (t) t.textContent = worlds ? 'World 1: Outskirts' : '📘 Tutorial stages';
+        if (!worlds) {
+            ['prevWorldBtn', 'nextWorldBtn'].forEach(id => { const e = document.getElementById(id); if (e) e.style.visibility = 'hidden'; });
+        }
+        const w2 = document.getElementById('world2View'); if (w2 && !worlds) w2.style.display = 'none';
         const w1 = document.getElementById('world1View'); if (w1) w1.style.display = 'flex';
+        const back = document.getElementById('levelSelectBackBtn');
+        if (back && !back._cdcPlayBack) {
+            back._cdcPlayBack = true;
+            const prev = back.onclick;
+            back.onclick = () => {
+                if (typeof prev === 'function') prev();
+                else { const ls = document.getElementById('levelSelectScreen'); if (ls) ls.style.display = 'none'; this.showMainMenu(); }
+                if (!window.__BOT && this.openPlayMenu) this.openPlayMenu();
+            };
+        }
         return r;
     };
     const origWin = P.completeLevelVictory;
     P.completeLevelVictory = function () {
         const lvl = this.selectedLevel || 1;
         const r = origWin.apply(this, arguments);
-        const t = document.getElementById('levelCompleteTitle'), nb = document.getElementById('nextLevelBtn');
-        if (lvl >= TUT_STAGES) {
-            try { localStorage.setItem('td_tutorial_complete', '1'); } catch (e) {}
-            if (t) t.textContent = '🎓 Tutorial complete!';
-            if (nb) nb.textContent = '♾ Play Endless';
-        } else {
-            if (t) t.textContent = 'Stage ' + lvl + ' of ' + TUT_STAGES + ' complete!';
-            if (nb) nb.textContent = 'Next Stage ▶';
+        if (this._cdcPlayMode === 'tutorial') {
+            const t = document.getElementById('levelCompleteTitle'), nb = document.getElementById('nextLevelBtn');
+            if (lvl >= TUT_STAGES) {
+                try { localStorage.setItem('td_tutorial_complete', '1'); } catch (e) {}
+                if (t) t.textContent = '🎓 Tutorial complete!';
+                if (nb) nb.textContent = '♾ Play Endless';
+            } else {
+                if (t) t.textContent = 'Stage ' + lvl + ' of ' + TUT_STAGES + ' complete!';
+                if (nb) nb.textContent = 'Next Stage ▶';
+            }
         }
         return r;
     };
@@ -186,16 +204,43 @@
     };
     window.cdcStageCoach = Coach;
 
-    // ---------------- Menu ----------------
+    // ---------------- Menu (v5.23: Play -> Tutorial / Worlds / Endless) ----------------
+    function hideOverlays(s) {
+        ['levelSelectScreen', 'waterPopup', 'levelCompleteScreen', 'gameOverScreen'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+        document.body.classList.remove('modal-open');
+    }
+    function openSelect(s, mode) {
+        s._cdcPlayMode = mode;
+        hideOverlays(s);
+        const mm = document.getElementById('mainMenu'); if (mm) mm.style.display = 'none';
+        const ls = document.getElementById('levelSelectScreen'); if (ls) ls.style.display = 'flex';
+        s.setupLevelSelect();
+    }
+    P.openPlayMenu = function () {
+        const mm = document.getElementById('mainMenu');
+        if (mm) { mm.style.display = 'flex'; mm.classList.add('is-play-open'); }
+        hideOverlays(this);
+        refreshNudge();
+    };
+    P.closePlayMenu = function () {
+        const mm = document.getElementById('mainMenu');
+        if (mm) mm.classList.remove('is-play-open');
+    };
     function boot() {
         const s = scene(); if (!s) { setTimeout(boot, 50); return; }
-        const eb = document.getElementById('endlessBtn');
-        if (eb && !eb._cdc) { eb._cdc = true; eb.addEventListener('click', () => { try { s.soundManager.playButtonClick(); } catch (e) {} s.startEndless(); }); }
+        const bind = (id, fn) => {
+            const el = document.getElementById(id);
+            if (el && !el._cdc) { el._cdc = true; el.addEventListener('click', () => { try { s.soundManager.playButtonClick(); } catch (e) {} fn(); }); }
+        };
+        bind('tutorialModeBtn', () => openSelect(s, 'tutorial'));
+        bind('worldsModeBtn', () => openSelect(s, 'worlds'));
+        bind('endlessBtn', () => s.startEndless());
+        bind('playMenuBackBtn', () => { s.closePlayMenu(); s.showMainMenu(); });
         const nb = document.getElementById('nextLevelBtn');
         if (nb && !nb._cdcModes) {
             nb._cdcModes = true;
             nb.addEventListener('click', e => {
-                if ((s._pendingVictoryLevel || 0) < TUT_STAGES) return;
+                if (s._cdcPlayMode !== 'tutorial' || (s._pendingVictoryLevel || 0) < TUT_STAGES) return;
                 e.stopImmediatePropagation();
                 const sc = document.getElementById('levelCompleteScreen'); if (sc) sc.style.display = 'none';
                 s.startEndless();
@@ -204,7 +249,7 @@
         refreshNudge();
     }
     function refreshNudge() {
-        const tb = document.getElementById('playBtn'); if (!tb) return;
+        const tb = document.getElementById('tutorialModeBtn') || document.getElementById('playBtn'); if (!tb) return;
         let newbie = true;
         try { newbie = !localStorage.getItem('td_tutorial_complete') && parseInt(localStorage.getItem('td_max_level') || 1) < 4; } catch (e) {}
         tb.classList.toggle('cdc-nudge', newbie);
@@ -212,6 +257,11 @@
         if (hint) hint.textContent = newbie ? '⭐ New here? Start with the Tutorial' : ('Endless best: ' + fmt(parseInt(localStorage.getItem('td_endless_best') || 0)));
     }
     const origMenu = P.showMainMenu;
-    P.showMainMenu = function () { const r = origMenu.apply(this, arguments); refreshNudge(); return r; };
+    P.showMainMenu = function () {
+        this.closePlayMenu && this.closePlayMenu();
+        const r = origMenu.apply(this, arguments);
+        refreshNudge();
+        return r;
+    };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 0)); else setTimeout(boot, 0);
 })();

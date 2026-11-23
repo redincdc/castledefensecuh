@@ -7,7 +7,7 @@
     <title>Castle Defense Cuh — Play</title>
     <link rel="icon" href="../favicon.ico" sizes="any">
     <link rel="stylesheet" href="style.css?v=5.22b">
-    <link rel="stylesheet" href="../beta/polish.css?b=3">
+    <link rel="stylesheet" href="../beta/polish.css?b=4">
 </head>
 <body>
     <div class="game-container">
@@ -57,9 +57,14 @@
             <h1><span>Castle Defense</span> <span>Cuh</span></h1>
             <div class="main-menu-buttons">
                 <button type="button" class="btn-main" id="continueBtn" style="display:none; background: #FF9800;" onclick="if(window.gameScene && window.gameScene.loadGame) window.gameScene.loadGame();">⏯ Continue</button>
-                <button type="button" class="btn-main btn-mode btn-mode-tutorial" id="playBtn" onclick="if(window.gameScene && window.gameScene.onPlayClicked) window.gameScene.onPlayClicked();"><span class="mode-title">📘 Tutorial</span><span class="mode-sub">Learn every enemy and weapon</span></button>
+                <button type="button" class="btn-main" id="playBtn" onclick="if(window.gameScene && window.gameScene.onPlayClicked) window.gameScene.onPlayClicked();">▶ Play</button>
+                <div id="playMenu" class="play-menu" hidden>
+                <button type="button" class="btn-main btn-mode btn-mode-tutorial" id="tutorialModeBtn"><span class="mode-title">📘 Tutorial</span><span class="mode-sub">Learn every enemy and weapon</span></button>
+                <button type="button" class="btn-main btn-mode btn-mode-worlds" id="worldsModeBtn"><span class="mode-title">🌍 Worlds</span><span class="mode-sub">World 1: 25 classic levels</span></button>
                 <button type="button" class="btn-main btn-mode btn-mode-endless" id="endlessBtn"><span class="mode-title">♾ Endless</span><span class="mode-sub">All weapons. Survive as long as you can</span></button>
                 <div class="mode-hint" id="modeHint"></div>
+                <button type="button" class="btn-main btn-menu-sub" id="playMenuBackBtn">◀ Back</button>
+                </div>
                 <div class="menu-sub-row">
                 <button type="button" class="btn-main btn-menu-sub" id="settingsBtn" onclick="if(window.gameScene && window.gameScene.openSettingsMenu) window.gameScene.openSettingsMenu();">⚙ Settings</button>
                 <button type="button" class="btn-main btn-menu-sub" id="leaderboardBtn" onclick="if(window.gameScene && window.gameScene.openLeaderboard) window.gameScene.openLeaderboard();">🏆 Scores</button>
@@ -235,13 +240,13 @@
     <script src="Core.js"></script>
     <script src="GameConfig.js"></script>
     <script src="TextureManager.js"></script>
-    <script src="../beta/SoundManager.js?b=3"></script>
-    <script src="../beta/Engine.js?b=3"></script>
-    <script src="../beta/GridSystem.js?b=3"></script>
+    <script src="../beta/SoundManager.js?b=4"></script>
+    <script src="../beta/Engine.js?b=4"></script>
+    <script src="../beta/GridSystem.js?b=4"></script>
     <script src="Projectile.js"></script>
     <script src="Portal.js"></script>
-    <script src="../beta/Entities.js?b=3"></script>
-    <script src="../beta/Enemy.js?b=3"></script>
+    <script src="../beta/Entities.js?b=4"></script>
+    <script src="../beta/Enemy.js?b=4"></script>
     <script src="enemies/Normy.js"></script>
     <script src="enemies/Groupie.js"></script>
     <script src="enemies/Speedy.js"></script>
@@ -250,7 +255,7 @@
     <script src="enemies/Flyer.js"></script>
     <script src="enemies/Splitter.js"></script>
     <script src="enemies/Breaker.js"></script>
-    <script src="../beta/Tower.js?b=3"></script>
+    <script src="../beta/Tower.js?b=4"></script>
     <script src="towers/WallTower.js"></script>
     <script src="towers/SpikeTrap.js"></script>
     <script src="towers/MirrorTower.js"></script>
@@ -269,12 +274,12 @@
     <script src="BalanceAnalytics.js"></script>
     <script src="LogManager.js"></script>
     <script src="HeadlessSimulator.js"></script>
-    <script src="../beta/game.js?b=3"></script>
-    <script src="../beta/Polish.js?b=3"></script>
-    <script src="../beta/Extras.js?b=3"></script>
-    <script src="../beta/Modes.js?b=3"></script>
+    <script src="../beta/game.js?b=4"></script>
+    <script src="../beta/Polish.js?b=4"></script>
+    <script src="../beta/Extras.js?b=4"></script>
+    <script src="../beta/Modes.js?b=4"></script>
     <script>
-        window.CDC_VERSION = '5.22-beta';
+        window.CDC_VERSION = '5.23-beta';
         window._cdcCrashSent = false;
         // v5.21: player bug reports / ideas are ALSO copied to FormSubmit. Fire-and-forget: never awaited, every
         // error swallowed, so it can't block or break the Formspree submit or the UI.
