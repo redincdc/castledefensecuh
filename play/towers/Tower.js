@@ -565,11 +565,13 @@ class Tower extends BuildableEntity {
 
     findTarget(enemies, scene) {
         let closest = null, minDist = Infinity, rangeSq = this.range * this.range;
-        enemies.forEach(e => {
-            if (e.isDead || (this.targets === 'fly' && e.type !== 'flyer') || (this.targets === 'ground' && e.type === 'flyer')) return;
+        const minSq = this.minRange * this.minRange; // v5.27: plain loop (no per-frame closure), same result
+        for (let i = 0; i < enemies.length; i++) {
+            const e = enemies[i];
+            if (e.isDead || (this.targets === 'fly' && e.type !== 'flyer') || (this.targets === 'ground' && e.type === 'flyer')) continue;
             const dSq = distSq(this.x, this.y, e.x, e.y);
-            if (dSq >= (this.minRange * this.minRange) && dSq <= rangeSq && dSq < minDist) { minDist = dSq; closest = e; }
-        });
+            if (dSq >= minSq && dSq <= rangeSq && dSq < minDist) { minDist = dSq; closest = e; }
+        }
         this.currentTarget = closest;
     }
 
