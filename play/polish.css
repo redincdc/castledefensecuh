@@ -339,3 +339,17 @@ body.cdc-wide .main-menu-buttons { align-items: center !important; } body.cdc-wi
 /* v5.24 tutorial highlight: pulsing arsenal button */
 .cdc-hl-btn { animation: cdcHlBtn 0.9s ease-in-out infinite; position: relative; z-index: 5; }
 @keyframes cdcHlBtn { 0%,100% { box-shadow: 0 0 0 2px #FFD54F, 0 0 4px rgba(255,213,79,0.4); transform: scale(1); } 50% { box-shadow: 0 0 0 3px #FFD54F, 0 0 16px rgba(255,213,79,0.95); transform: scale(1.08); } }
+
+/* v5.27: Repair all HUD button (greyed when nothing affordable to repair) */
+.game-info .pause-bar.disabled { opacity: 0.45; filter: grayscale(0.8); }
+/* v5.27: touch devices in landscape: keep portrait layout, ask to rotate back */
+.rotate-overlay { display: none; position: fixed; inset: 0; z-index: 100000; background: rgba(10,16,12,0.96); align-items: center; justify-content: center; text-align: center; color: #fff; padding: 12px; box-sizing: border-box; }
+body.cdc-rotate .rotate-overlay { display: flex; }
+.rotate-overlay .rotate-box { max-width: 90vw; }
+.rotate-overlay .rotate-icon { font-size: 44px; display: inline-block; transform: rotate(90deg); animation: cdcRot 1.6s ease-in-out infinite; }
+.rotate-overlay h2 { margin: 8px 0 6px; color: #FFD54F; font-size: 22px; }
+.rotate-overlay p { margin: 0; font-size: 15px; color: #dfe7e2; }
+@keyframes cdcRot { 0%, 30% { transform: rotate(90deg); } 60%, 100% { transform: rotate(0deg); } }
+#repairAllHudBtn { white-space: nowrap; letter-spacing: -0.04em; padding-left: 1px; padding-right: 1px; }
+body:not(.cdc-wide) #repairAllHudBtn { font-size: 12px; }
+.game-info.hud-compact #repairAllHudBtn { font-size: 9px !important; }

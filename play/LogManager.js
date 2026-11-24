@@ -42,6 +42,7 @@ class LogManager {
     }
 
     reset() {
+        if (this._batch) this._flushBatch();
         this.currentLogFile = null;
         this.isInitialized = false;
         // Keep buffer to persist across games until browser refresh
@@ -49,6 +50,7 @@ class LogManager {
     }
 
     async initSession() {
+        if (this._batch) this._flushBatch();
         const now = new Date();
         const timestamp = now.toISOString().replace(/[:.]/g, "-");
         this.currentLogFile = `${this.logPrefix}${timestamp}.txt`;
@@ -193,6 +195,22 @@ class LogManager {
             return;
         }
 
+        // v5.27: batch writes (was one native write / full IndexedDB rewrite per log line, very heavy in crowded waves)
+        this._batch = (this._batch || '') + text;
+        if (!this._batchTimer) {
+            this._batchTimer = setTimeout(() => this._flushBatch(), 500);
+            if (!this._batchHooked) {
+                this._batchHooked = true;
+                const f = () => this._flushBatch();
+                try { window.addEventListener('pagehide', f); document.addEventListener('visibilitychange', f); } catch (e) {}
+            }
+        }
+    }
+
+    _flushBatch() {
+        if (this._batchTimer) { clearTimeout(this._batchTimer); this._batchTimer = null; }
+        const text = this._batch; this._batch = '';
+        if (!text) return;
         if (typeof Android !== 'undefined') {
             Android.writeFile(this.currentLogFile, text, true);
         } else {

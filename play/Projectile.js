@@ -160,8 +160,11 @@ class Projectile {
                     // Hitbox math: Check if distance from enemy center to projectile's current spot is within radius
                     const dx = enemy.x - this.x;
                     const dy = enemy.y - this.y;
-                    const distSq = dx * dx + dy * dy;
                     const hitRadius = (enemy.size / 2) + (this.size / 2);
+                    // v5.27: cheap reject - an enemy farther than (hit radius + this frame's travel) on either axis can't be hit
+                    const reach = hitRadius + moveDistance + 1;
+                    if (dx > reach || dx < -reach || dy > reach || dy < -reach) continue;
+                    const distSq = dx * dx + dy * dy;
                     const hitRadiusSq = hitRadius * hitRadius;
 
                     // Fast-forward check (Line segment point-distance) to prevent jumping over enemies at 8x speed

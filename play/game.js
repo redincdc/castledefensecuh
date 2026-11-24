@@ -144,6 +144,7 @@ class GameScene {
         bind('vibrateToggleBtn', () => this.setVibrationEnabled(!this.soundManager.vibrationEnabled));
         bind('ffBtn', () => this.toggleFastForward());
         bind('upgradeAllHudBtn', () => this.toggleAutoUpgrade());
+        bind('repairAllHudBtn', () => this.repairAll());
         bind('viewLogBtn', () => this.openLogViewer());
         bind('closeLogBtn', () => this.closeLogViewer());
         bind('copyLogBtn', () => this.copyLogToClipboard());
@@ -945,6 +946,9 @@ class GameScene {
             this.startIntermission();
         }
 
+        this._repairBtnTimer = (this._repairBtnTimer || 0) + (unscaledDelta || deltaTime);
+        if (this._repairBtnTimer >= 0.25) { this._repairBtnTimer = 0; this._refreshRepairAllBtn(); }
+
         // GDD §4/5a: Auto Upgrade logic (runs every 1 second)
         this._autoUpgradeTimer = (this._autoUpgradeTimer || 0) + deltaTime;
         if (this._autoUpgradeTimer >= 1.0) {
@@ -1552,12 +1556,17 @@ class GameScene {
             const sellPrice = tower.getSellPrice ? tower.getSellPrice() : 0;
             const upgradeLabel = tower.isUpgrading ? `${Math.floor(tower.upgradeProgress * 100)}%` : (canUpgrade ? `Upgrade (${cost}g)` : 'MAX LEVEL');
             const upgradeBtn = `<button id="upgradeBtn" class="btn-upgrade ${!canUpgrade ? 'max-level' : ''}" ${tower.isUpgrading || !canUpgrade ? 'disabled' : ''}>${upgradeLabel}</button>`;
-            const sellBtn = `<button id="removeBtn" class="btn-remove">Sell (${sellPrice}g)</button>`;
+            let sellBtn = `<button id="removeBtn" class="btn-remove">Sell (${sellPrice}g)</button>`;
+            const damaged = tower.health < tower.maxHealth && !tower.isDestroying;
 
             let middleBtn = '';
-            if (tower.isUpgrading) {
+            if (tower.isUpgrading && damaged) {
+                // v5.27 (fs-14173312): a damaged tower stays repairable while it upgrades (Cancel takes the Sell slot)
+                middleBtn = `<button id="repairBtn" class="btn-repair">Repair (${tower.getRepairCost()}g)</button>`;
+                sellBtn = '<button id="cancelUpgradeBtn" class="btn-remove">Cancel</button>';
+            } else if (tower.isUpgrading) {
                 middleBtn = '<button id="cancelUpgradeBtn" class="btn-remove">Cancel</button>';
-            } else if (tower.health < tower.maxHealth) {
+            } else if (damaged) {
                 middleBtn = `<button id="repairBtn" class="btn-repair">Repair (${tower.getRepairCost()}g)</button>`;
             } else if (tower.isLaser || tower.isFlame || tower.isMirror) {
                 const iconClass = tower.isMirror ? 'rotate-line' : 'rotate-arrow';
@@ -2791,6 +2800,40 @@ class GameScene {
         }
     }
 
+    // v5.27 (fs-14175023): Repair all - repairs every damaged structure the player can afford, cheapest first
+    _repairCandidates() {
+        const list = [];
+        const add = e => { if (e && !e.isDestroying && e.isBuilt !== false && e.getRepairCost && e.health > 0 && e.health < e.maxHealth) list.push(e); };
+        (this.towers || []).forEach(add); (this.walls || []).forEach(add); (this.mirrors || []).forEach(add);
+        (this.spikes || []).forEach(add); (this.Lilypads || []).forEach(add); add(this.castle);
+        return list;
+    }
+    repairAll() {
+        if (!this.gameStateManager.isPlaying || this.placementMode) return 0;
+        const list = this._repairCandidates().map(e => ({ e, c: e.getRepairCost() })).sort((a, b) => a.c - b.c);
+        let n = 0, spent = 0;
+        for (const { e, c } of list) {
+            if (this.gameStateManager.gold < c) continue;
+            if (this.gameStateManager.spendGold(c)) { e.health = e.maxHealth; n++; spent += c; }
+        }
+        if (n) {
+            if (this.castle && this.castle.health >= this.castle.maxHealth) this.gameStateManager.setCastleHealth(this.castle.health);
+            if (window.logManager) window.logManager.log(`🔧 Repair all: ${n} (-${spent}g)`, "TOWERS");
+            if (this.selectedTower) { try { this.showTowerPopup(this.selectedTower); } catch (e) {} }
+        } else {
+            this.setBlockedMessage(list.length ? "Not enough gold!" : "Nothing to repair", this.canvas.width / 2, this.canvas.height - 100);
+        }
+        this._refreshRepairAllBtn();
+        return n;
+    }
+    _refreshRepairAllBtn() {
+        const btn = this._repairAllBtn || (this._repairAllBtn = document.getElementById('repairAllHudBtn'));
+        if (!btn) return;
+        const gold = this.gameStateManager.gold;
+        const can = !this.placementMode && this._repairCandidates().some(e => e.getRepairCost() <= gold);
+        if (btn._can !== can) { btn._can = can; btn.classList.toggle('disabled', !can); btn.setAttribute('aria-disabled', String(!can)); }
+    }
+
     toggleAutoUpgrade() {
         this.autoUpgrade = !this.autoUpgrade;
         const btn = document.getElementById('upgradeAllHudBtn');
@@ -3579,6 +3622,7 @@ class GameScene {
     renderLilypadIcon(canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.save(); ctx.translate(20, 20); ctx.fillStyle = '#228B22'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
 
     addAshEffect(enemy) {
+        if (this.ashEffects.length >= 40) return; // v5.27: crowd cap (each ash effect allocates two canvases)
         const size = enemy.size || 20;
         const pad = 10;
         const canvas = document.createElement('canvas');
@@ -3618,16 +3662,18 @@ class GameScene {
         });
     }
 
-    addExplosion(x, y, radius, color = '#FF6600') { this.explosions.push({ x, y, radius, color, life: 500, maxLife: 500 }); }
-    addDamageNumber(x, y, damage) { this.damageNumbers.push({ x, y, damage, life: 1.0 }); }
+    // v5.27: visual-only caps so a crowded screen can't pile up FX
+    addExplosion(x, y, radius, color = '#FF6600') { if (this.explosions.length >= 80) return; this.explosions.push({ x, y, radius, color, life: 500, maxLife: 500 }); }
+    addDamageNumber(x, y, damage) { if (this.damageNumbers.length >= 60) return; this.damageNumbers.push({ x, y, damage, life: 1.0 }); }
     spawnConfetti(x, y, size = 5, isBoss = false) {
         const count = isBoss ? 40 : 12, colors = ['#FFD700', '#FF4500', '#FF1493', '#00BFFF', '#32CD32'];
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2, force = (Math.random() * 200) + (isBoss ? 100 : 50);
-            this.confetti.push({ x, y, size: (Math.random() * 4) + 3, vx: Math.cos(angle) * force, vy: Math.sin(angle) * force - 50, life: (Math.random() * 1.5) + 0.5, color: colors[Math.floor(Math.random() * colors.length)], rot: Math.random() * Math.PI * 2, vr: (Math.random() * 10) - 5 });
+            const _c = { x, y, size: (Math.random() * 4) + 3, vx: Math.cos(angle) * force, vy: Math.sin(angle) * force - 50, life: (Math.random() * 1.5) + 0.5, color: colors[Math.floor(Math.random() * colors.length)], rot: Math.random() * Math.PI * 2, vr: (Math.random() * 10) - 5 };
+            if (this.confetti.length < 300) this.confetti.push(_c); // v5.27 cap (random values still drawn so gameplay RNG is unchanged)
         }
     }
-    addProjectile(p) { this.projectiles.push(p); }
+    addProjectile(p) { if (this.projectiles.length < 8000) this.projectiles.push(p); } // v5.27: runaway safety cap only (late Endless legitimately passes 1500; projectiles carry damage)
 }
 
 let _gameInitAttempted = false;
@@ -3639,6 +3685,22 @@ function _outerHeight(el) {
     const s = window.getComputedStyle(el);
     return r.height + (parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0);
 }
+
+let _cdcWasLandscape = false, _cdcLaidOut = false, _cdcRunTile = 0;
+function cdcIsTouchOnly() {
+    try {
+        const touch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+        return touch && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    } catch (e) { return false; }
+}
+function cdcLockPortrait() {
+    try {
+        if (!cdcIsTouchOnly() || !screen.orientation || typeof screen.orientation.lock !== 'function') return;
+        const p = screen.orientation.lock('portrait'); if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+}
+cdcLockPortrait();
+document.addEventListener('pointerdown', function _cdcLockOnce() { document.removeEventListener('pointerdown', _cdcLockOnce, true); cdcLockPortrait(); }, true);
 
 function layoutPlayfield() {
     if (_layoutPlayfieldRunning) return;
@@ -3657,7 +3719,21 @@ function layoutPlayfield() {
         container.style.maxWidth = '';
         // v5.18: landscape / 16:9 windows use a 3-column layout (HUD | board | arsenal)
         const vw = window.innerWidth, vh = window.innerHeight;
-        const wide = !isAndroid && vw >= 560 && vw / Math.max(1, vh) >= 1.05;
+        // v5.27 (fs-14169943): phones/tablets (touch, no hover) always keep the portrait layout; in landscape a
+        // "rotate back" overlay is shown and a running game is paused. Desktop wide layout is unchanged.
+        const touchOnly = cdcIsTouchOnly();
+        const touchLandscape = touchOnly && vw > vh;
+        document.body.classList.toggle('cdc-touch', touchOnly);
+        document.body.classList.toggle('cdc-rotate', touchLandscape);
+        if (touchLandscape && !_cdcWasLandscape) {
+            const s = window.gameScene;
+            try { if (s && s.gameStateManager && s.gameStateManager.isPlaying && !s.gameStateManager.isPaused && !s.placementMode) s.togglePause(); } catch (e) {}
+        }
+        _cdcWasLandscape = touchLandscape;
+        // While the overlay is up, leave the board exactly as it was (a mid-run tile-size change broke the game)
+        if (touchLandscape && _cdcLaidOut) return;
+        const _gs = window.gameScene, runActive = !!(_gs && _gs.gameStateManager && _gs.gameStateManager.isPlaying && !_gs.placementMode);
+        const wide = !isAndroid && !touchOnly && vw >= 560 && vw / Math.max(1, vh) >= 1.05;
         document.body.classList.toggle('cdc-wide', wide);
 
         if (window.gameScene && typeof window.gameScene._layoutArsenal === 'function') {
@@ -3686,6 +3762,9 @@ function layoutPlayfield() {
         // v5.26: never force 18px tiles when that would push the HUD or arsenal off-screen
         // (366x318 and other short viewports). Prefer 18px when there is room; otherwise shrink to fit, floor 8px.
         let tileSize = Math.max(8, Math.min(tileSizeW, tileSizeH));
+        // v5.27: on touch devices the tile size is fixed for the whole run (browser bars / rotation can't resize the board mid-game)
+        const lockTile = touchOnly && runActive && _cdcRunTile > 0;
+        if (lockTile) tileSize = _cdcRunTile;
 
         if (window._originalGameConfig) {
             const base = JSON.parse(JSON.stringify(window._originalGameConfig));
@@ -3722,7 +3801,7 @@ function layoutPlayfield() {
         if (!wide) {
             const chromeNow = _outerHeight(hud) + _outerHeight(controls) + canvasMargins + canvasBorders;
             const fitH = Math.floor((contentH - chromeNow) / targetRows);
-            if (Number.isFinite(fitH) && fitH < tileSize) {
+            if (!lockTile && Number.isFinite(fitH) && fitH < tileSize) {
                 tileSize = Math.max(8, fitH);
                 canvas.width = columns * tileSize;
                 canvas.style.width = canvas.width + 'px';
@@ -3738,6 +3817,7 @@ function layoutPlayfield() {
             }
         }
 
+        _cdcLaidOut = true; _cdcRunTile = tileSize;
         GameConfig.Grid.columns = columns;
         GameConfig.Grid.rows = targetRows;
         GameConfig.Grid.tileSize = tileSize;

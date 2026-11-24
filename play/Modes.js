@@ -313,4 +313,241 @@
         return r;
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 0)); else setTimeout(boot, 0);
+
+    // ---------------- v5.27 (fs-14177965): Endless autosave ----------------
+    // Saved between waves (and on exit / tab hide). Mid-wave exits keep the last between-waves save, so a
+    // continue restarts the wave that was running. Versioned key; anything unreadable is dropped safely.
+    const SAVE_KEY = 'cdc_endless_save_v1', SAVE_V = 1;
+    const LISTS = ['towers', 'walls', 'spikes', 'mirrors', 'Lilypads'];
+    function readSave() {
+        let d = null;
+        try { const j = localStorage.getItem(SAVE_KEY); if (!j) return null; d = JSON.parse(j); } catch (e) { d = null; }
+        const ok = d && d.v === SAVE_V && Number.isInteger(d.round) && d.round >= 0 && d.castle && Number.isInteger(d.castle.c) && Number.isInteger(d.castle.r) && Array.isArray(d.ents) && isFinite(d.gold);
+        if (!ok) { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} return null; }
+        return d;
+    }
+    function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+    P.hasEndlessSave = function () { return !!readSave(); };
+    P.endlessSnapshot = function () {
+        const s = this, gs = s.gameStateManager, grid = s.gridSystem;
+        if (!isEndless(s) || !s.castle || s.placementMode || !gs.isPlaying || gs.gameOverTriggered) return null;
+        const ents = [];
+        LISTS.forEach(k => (s[k] || []).forEach(e => {
+            if (!e || e.isDestroying) return;
+            const t = grid.getTileAtPosition(e.x, e.y); if (!t) return;
+            const o = { k, t: e.type, c: t.col, r: t.row, lvl: e.upgradeLevel || 0, hp: e.maxHealth ? Math.max(0.01, Math.min(1, e.health / e.maxHealth)) : 1, inv: e.totalInvested || 0, bp: e.isBuilt ? 1 : (e.buildProgress || 0) };
+            if (e.killCount) o.kills = e.killCount;
+            if (e.laserDirection) o.ld = e.laserDirection;
+            if (e.flameDirection) o.fd = e.flameDirection;
+            if (e.angleIndex) o.ai = e.angleIndex;
+            if (e.isUpgrader) { o.dl = e.dmgLevel || 0; o.rl = e.rangeLevel || 0; }
+            if (e.autoUpgrade !== undefined) o.au = e.autoUpgrade;
+            if (e.isUpgrading) { o.up = e.upgradeProgress || 0; if (e.isUpgrader) o.uk = e.isUpgradingRange ? 'range' : 'dmg'; }
+            ents.push(o);
+        }));
+        const c = s.castle;
+        return {
+            v: SAVE_V, ver: window.CDC_VERSION || '', at: Date.now(), round: gs.round, gold: gs.gold, score: gs.score || 0,
+            time: s.gameTime || 0, rts: s.realTimeSurvived || 0, auto: !!s.autoUpgrade, portal: grid.portalCol,
+            castle: { c: grid.castleCol, r: grid.castleRow, lvl: c.upgradeLevel || 0, hp: c.health, up: c.isUpgrading ? (c.upgradeProgress || 0) : null },
+            ents
+        };
+    };
+    P.saveEndless = function (fresh) {
+        if (!isEndless(this)) return false;
+        let snap = null;
+        if (fresh || this.isCountingDown) snap = this.endlessSnapshot();
+        if (snap) this._cdcLastSnap = snap; else snap = this._cdcLastSnap;
+        if (!snap) return false;
+        try { localStorage.setItem(SAVE_KEY, JSON.stringify(snap)); return true; } catch (e) { return false; }
+    };
+    function makeEnt(type, tx, ty, col, row) {
+        switch (type) {
+            case 'machinegun': return new MachineGunTower(tx, ty);
+            case 'cannon': return new CannonTower(tx, ty);
+            case 'sniper': return new SniperTower(tx, ty);
+            case 'aa': return new AAGunTower(tx, ty);
+            case 'mortar': return new MortarTower(tx, ty);
+            case 'frost': return new FrostTower(tx, ty);
+            case 'tesla': return new TeslaTower(tx, ty);
+            case 'upgrader': return new UpgraderTower(tx, ty);
+            case 'laser': return new LaserTower(tx, ty);
+            case 'flame': return new FlameTower(tx, ty);
+            case 'wall': return new WallTower(tx, ty, col, row);
+            case 'spike': return new SpikeTrap(tx, ty, col, row);
+            case 'mirror': return new MirrorTower(tx, ty, col, row);
+            case 'lilypad': return new LilypadTower(tx, ty, col, row);
+            default: return null;
+        }
+    }
+    P.continueEndless = function () {
+        const d = readSave(); if (!d) { this.startEndless(); return false; }
+        ['mainMenu', 'levelSelectScreen', 'waterPopup', 'levelCompleteScreen', 'gameOverScreen'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+        document.body.classList.remove('modal-open');
+        this._cdcPlayMode = 'endless'; this.selectedLevel = ENDLESS; this.waterEnabled = false;
+        this.start();
+        try {
+            const s = this, gs = s.gameStateManager, grid = s.gridSystem, ts = GameConfig.Grid.tileSize;
+            const tileAt = (c, r) => grid.tiles[r] && grid.tiles[r][c];
+            // portal
+            if (Number.isInteger(d.portal) && tileAt(d.portal, 0)) {
+                const old = tileAt(grid.portalCol, 0); if (old) old.reserved = false;
+                grid.portalCol = d.portal; const pt = tileAt(d.portal, 0);
+                s.portal = new Portal(pt.x + ts / 2, pt.y + ts / 2); pt.reserved = true;
+            }
+            // castle
+            const ct = tileAt(d.castle.c, d.castle.r); if (!ct || !tileAt(d.castle.c + 1, d.castle.r + 1)) throw new Error('bad castle tile');
+            s.setupCastle(ct); s.placementMode = false;
+            const cs = s.castle, sc = cs._scene; cs._scene = null;
+            for (let i = 0; i < Math.min(d.castle.lvl || 0, cs.maxUpgrades || 5); i++) cs.upgrade();
+            cs._scene = sc;
+            cs.health = Math.max(1, Math.min(cs.maxHealth, +d.castle.hp || cs.maxHealth));
+            if (d.castle.up != null && cs.startUpgrade && cs.startUpgrade()) cs.upgradeProgress = +d.castle.up || 0;
+            // structures
+            d.ents.forEach(o => {
+                if (LISTS.indexOf(o.k) < 0) return;
+                const tile = tileAt(o.c, o.r); if (!tile || tile.occupied || (tile.reserved && o.t !== 'spike')) return;
+                const e = makeEnt(o.t, tile.x + ts / 2, tile.y + ts / 2, tile.col, tile.row); if (!e) return;
+                if (e.isUpgrader) { e.dmgLevel = o.dl || 0; e.rangeLevel = o.rl || 0; e.buffRadius = e.getRangeRadius(); }
+                e.upgradeLevel = o.lvl || 0;
+                if (e.recalcStats) e.recalcStats();
+                e.totalInvested = o.inv || e.totalInvested;
+                e.buildProgress = Math.min(1, o.bp || 0); e.isBuilt = e.buildProgress >= 1;
+                e.health = Math.max(1, Math.round(e.maxHealth * (o.hp || 1)));
+                if (o.kills) e.killCount = o.kills;
+                if (o.ld) e.laserDirection = o.ld;
+                if (o.fd) e.flameDirection = o.fd;
+                if (o.ai) e.angleIndex = o.ai;
+                if (o.au !== undefined) e.autoUpgrade = o.au;
+                if (o.up != null && e.isBuilt && e.startUpgrade && e.startUpgrade(o.uk)) e.upgradeProgress = +o.up || 0;
+                s[o.k].push(e);
+                if (o.k === 'walls') tile.isWall = true;
+                if (o.k === 'Lilypads') grid.addLilypad(tile, e);
+                if (o.k !== 'spikes' && o.k !== 'Lilypads') tile.occupied = true;
+                tile.reserved = true;
+            });
+            gs.gold = Math.max(0, Math.floor(d.gold)); gs.round = d.round; gs.score = d.score || 0;
+            s.gameTime = +d.time || 0; s.realTimeSurvived = +d.rts || 0; s.castleHpAtRoundStart = cs.health;
+            if (d.auto && !s.autoUpgrade) s.toggleAutoUpgrade();
+            gs.notify('goldChanged', gs.gold); gs.notify('roundChanged', gs.round); gs.setCastleHealth(cs.health);
+            s._entitiesDirty = true; s.updateEnemyPaths(); s.updateLaserPaths(); s.updateTowerButtonAffordability(gs.gold);
+            s._cdcLastSnap = d;
+            if (window.logManager) window.logManager.log(`⏯ Continue endless R${d.round} (${d.ents.length} structures)`, 'INFO');
+            s.startCountdown(10, () => s.startNextRound());
+            return true;
+        } catch (err) {
+            if (window.GameLogger) GameLogger.error('Endless save restore failed: ' + err);
+            clearSave(); this.startEndless(); return false;
+        }
+    };
+    // save between waves
+    const origInter2 = P.startIntermission;
+    P.startIntermission = function () {
+        const r = origInter2.apply(this, arguments);
+        if (isEndless(this) && this.gameStateManager.isPlaying && !this.gameStateManager.gameOverTriggered) this.saveEndless(true);
+        return r;
+    };
+    // first save as soon as the castle is placed
+    const origMD = P.handleMouseDown;
+    P.handleMouseDown = function () {
+        const wasPlacing = this.placementMode;
+        const r = origMD.apply(this, arguments);
+        if (wasPlacing && !this.placementMode && isEndless(this)) this.saveEndless(true);
+        return r;
+    };
+    // game over clears the save
+    const origGO2 = P.showGameOver;
+    P.showGameOver = function () { if (isEndless(this)) { clearSave(); this._cdcLastSnap = null; } return origGO2.apply(this, arguments); };
+    function saveIfRunning() { const s = scene(); if (s && isEndless(s) && s.gameStateManager && s.gameStateManager.isPlaying && !s.gameStateManager.gameOverTriggered) s.saveEndless(false); }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveIfRunning(); });
+    window.addEventListener('pagehide', saveIfRunning);
+
+    // confirm dialog reuse ("Abandon Game?" modal)
+    function cdcConfirm(title, onYes) {
+        const ov = document.getElementById('confirmModalOverlay'); if (!ov) { onYes(); return; }
+        const h = ov.querySelector('h2'); if (h) { if (ov._cdcTitle === undefined) ov._cdcTitle = h.textContent; h.textContent = title; }
+        ov._cdcAction = onYes; ov.style.display = 'flex';
+    }
+    function hookConfirm() {
+        const ov = document.getElementById('confirmModalOverlay'), yes = document.getElementById('confirmYesBtn'), no = document.getElementById('confirmNoBtn');
+        if (!ov || !yes || yes._cdcConfirm) return;
+        yes._cdcConfirm = true;
+        const reset = () => { const h = ov.querySelector('h2'); if (h && ov._cdcTitle !== undefined) h.textContent = ov._cdcTitle; ov._cdcAction = null; };
+        yes.addEventListener('click', e => {
+            const fn = ov._cdcAction; if (!fn) return;
+            e.stopImmediatePropagation(); ov.style.display = 'none'; reset();
+            try { scene().soundManager.playButtonClick(); } catch (x) {}
+            fn();
+        }, true);
+        if (no) no.addEventListener('click', () => reset(), true);
+    }
+    function showSaving(then) {
+        const ov = document.getElementById('confirmModalOverlay');
+        const h = ov && ov.querySelector('h2'), acts = ov && ov.querySelector('.confirm-modal-actions');
+        if (!ov || !h) { then(); return; }
+        if (ov._cdcTitle === undefined) ov._cdcTitle = h.textContent;
+        h.textContent = 'Saving…'; if (acts) acts.style.visibility = 'hidden'; ov.style.display = 'flex';
+        setTimeout(() => { ov.style.display = 'none'; h.textContent = ov._cdcTitle; if (acts) acts.style.visibility = ''; then(); }, 600);
+    }
+    P.refreshEndlessMenu = function () {
+        const has = !!readSave();
+        const b = document.getElementById('endlessBtn'), n = document.getElementById('newEndlessBtn');
+        if (b) {
+            const t = b.querySelector('.mode-title'), sub = b.querySelector('.mode-sub');
+            if (t) t.textContent = has ? '⏯ Continue endless' : '♾ Endless';
+            if (sub) { if (sub._cdcDef === undefined) sub._cdcDef = sub.textContent; const d = has && readSave(); sub.textContent = has ? ('Round ' + d.round + ' · ' + fmt(d.rts || 0) + ' survived') : sub._cdcDef; }
+        }
+        if (n) n.style.display = has ? '' : 'none';
+    };
+    function bootSave() {
+        const s = scene(); if (!s) { setTimeout(bootSave, 50); return; }
+        hookConfirm();
+        // menu Endless button: continue when a save exists
+        const eb = document.getElementById('endlessBtn');
+        if (eb && !eb._cdcSave) {
+            eb._cdcSave = true;
+            eb.addEventListener('click', e => {
+                if (!readSave()) return;
+                e.stopImmediatePropagation();
+                try { s.soundManager.playButtonClick(); } catch (x) {}
+                s.continueEndless();
+            }, true);
+        }
+        const nb = document.getElementById('newEndlessBtn');
+        if (nb && !nb._cdcSave) {
+            nb._cdcSave = true;
+            nb.addEventListener('click', () => {
+                try { s.soundManager.playButtonClick(); } catch (x) {}
+                cdcConfirm('New endless? Your saved run will be lost. Are you sure?', () => { clearSave(); s.refreshEndlessMenu(); s.startEndless(); });
+            });
+        }
+        // pause menu: Main Menu in Endless saves instead of "Abandon game"; Restart asks first
+        const qb = document.getElementById('quitToMenuBtn');
+        if (qb && !qb._cdcSave) {
+            qb._cdcSave = true;
+            qb.addEventListener('click', e => {
+                if (!isEndless(s) || !s.gameStateManager.isPlaying || s.placementMode) return;
+                e.stopImmediatePropagation();
+                try { s.soundManager.playButtonClick(); } catch (x) {}
+                s.deselectTower();
+                s.saveEndless(false);
+                showSaving(() => s.quitToMainMenu());
+            }, true);
+        }
+        const rb = document.getElementById('restartBtn');
+        if (rb && !rb._cdcSave) {
+            rb._cdcSave = true;
+            rb.addEventListener('click', e => {
+                e.stopImmediatePropagation();
+                try { s.soundManager.playButtonClick(); } catch (x) {}
+                cdcConfirm('Restart? Are you sure?', () => { if (isEndless(s)) { clearSave(); s._cdcLastSnap = null; } s.restart(); });
+            }, true);
+        }
+        s.refreshEndlessMenu();
+    }
+    const origMenu2 = P.showMainMenu;
+    P.showMainMenu = function () { const r = origMenu2.apply(this, arguments); try { this.refreshEndlessMenu(); } catch (e) {} return r; };
+    const origSE = P.startEndless;
+    P.startEndless = function () { this._cdcLastSnap = null; return origSE.apply(this, arguments); }; // a fresh run overwrites the save once its castle is placed
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(bootSave, 0)); else setTimeout(bootSave, 0);
 })();

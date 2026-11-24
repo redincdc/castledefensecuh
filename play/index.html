@@ -6,7 +6,7 @@
     <title>Castle Defense Cuh — Play</title>
     <link rel="icon" href="../favicon.ico" sizes="any">
     <link rel="stylesheet" href="style.css?v=5.22">
-    <link rel="stylesheet" href="polish.css?v=5.25">
+    <link rel="stylesheet" href="polish.css?v=5.27">
 </head>
 <body>
     <div class="game-container">
@@ -27,6 +27,7 @@
                 <div class="info-item info-stat stat-hp"><div class="info-label">❤️ HP</div><div class="info-value"><span id="castleHealth">100</span></div></div>
                 <div class="info-item info-btn"><button class="pause-bar" id="ffBtn" aria-label="Fast forward">▶▶</button></div>
                 <div class="info-item info-btn"><button class="pause-bar" id="upgradeAllHudBtn" aria-label="Auto upgrade all">⬆All</button></div>
+                <div class="info-item info-btn"><button class="pause-bar disabled" id="repairAllHudBtn" aria-label="Repair all">🔧All</button></div>
             </div>
         </div>
 
@@ -62,7 +63,7 @@
                 <button type="button" class="btn-main btn-mode btn-mode-worlds" id="worldsModeBtn"><span class="mode-title">🌍 Worlds</span><span class="mode-sub">World 1: 25 classic levels</span></button>
                 <button type="button" class="btn-main btn-mode btn-mode-endless" id="endlessBtn"><span class="mode-title">♾ Endless</span><span class="mode-sub">All weapons. Survive as long as you can</span></button>
                 <div class="mode-hint" id="modeHint"></div>
-                <button type="button" class="btn-main btn-menu-sub" id="playMenuBackBtn">◀ Back</button>
+                <div class="menu-sub-row"><button type="button" class="btn-main btn-menu-sub" id="playMenuBackBtn">◀ Back</button><button type="button" class="btn-main btn-menu-sub" id="newEndlessBtn" style="display:none">♻ New endless</button></div>
                 </div>
                 <div class="menu-sub-row">
                 <button type="button" class="btn-main btn-menu-sub" id="settingsBtn" onclick="if(window.gameScene && window.gameScene.openSettingsMenu) window.gameScene.openSettingsMenu();">⚙ Settings</button>
@@ -177,6 +178,8 @@
             </div>
         </div>
 
+        <div class="rotate-overlay" id="rotateOverlay" aria-live="polite"><div class="rotate-box"><div class="rotate-icon">📱</div><h2>Rotate to portrait</h2><p>Castle Defense Cuh plays upright. Turn your phone back to continue.</p></div></div>
+
         <div class="confirm-modal-overlay" id="confirmModalOverlay">
             <div class="confirm-modal">
                 <h2>Abandon Game?</h2>
@@ -242,10 +245,10 @@
     <script src="SoundManager.js?v=5.22"></script>
     <script src="Engine.js?v=5.22"></script>
     <script src="GridSystem.js?v=5.22"></script>
-    <script src="Projectile.js"></script>
+    <script src="Projectile.js?v=5.27"></script>
     <script src="Portal.js"></script>
     <script src="Entities.js?v=5.22"></script>
-    <script src="enemies/Enemy.js?v=5.22"></script>
+    <script src="enemies/Enemy.js?v=5.27"></script>
     <script src="enemies/Normy.js"></script>
     <script src="enemies/Groupie.js"></script>
     <script src="enemies/Speedy.js"></script>
@@ -254,7 +257,7 @@
     <script src="enemies/Flyer.js"></script>
     <script src="enemies/Splitter.js"></script>
     <script src="enemies/Breaker.js"></script>
-    <script src="towers/Tower.js?v=5.24"></script>
+    <script src="towers/Tower.js?v=5.27"></script>
     <script src="towers/WallTower.js"></script>
     <script src="towers/SpikeTrap.js"></script>
     <script src="towers/MirrorTower.js"></script>
@@ -271,14 +274,14 @@
     <script src="towers/FlameTower.js"></script>
     <script src="InputManager.js"></script>
     <script src="BalanceAnalytics.js"></script>
-    <script src="LogManager.js"></script>
+    <script src="LogManager.js?v=5.27"></script>
     <script src="HeadlessSimulator.js"></script>
-    <script src="game.js?v=5.25"></script>
+    <script src="game.js?v=5.27"></script>
     <script src="Polish.js?v=5.24"></script>
     <script src="Extras.js?v=5.22"></script>
-    <script src="Modes.js?v=5.25"></script>
+    <script src="Modes.js?v=5.27"></script>
     <script>
-        window.CDC_VERSION = '5.25';
+        window.CDC_VERSION = '5.27';
         window._cdcCrashSent = false;
         // v5.21: player bug reports / ideas are ALSO copied to FormSubmit. Fire-and-forget: never awaited, every
         // error swallowed, so it can't block or break the Formspree submit or the UI.
@@ -346,6 +349,7 @@
         };
         window.onerror = function(msg, url, line, col, error) {
             if (/ResizeObserver loop/.test(String(msg || ''))) return false; // v5.24: benign browser warning, not a crash
+            if (String(msg || '') === 'Script error.' && !url && !(error && error.stack)) return false; // v5.27: opaque cross-origin error, no info
             window.cdcReportCrash('CRASH', msg || 'Unknown Error', {
                 file: url ? String(url).split('/').pop() : 'unknown',
                 line: line,
