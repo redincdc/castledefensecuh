@@ -1,3 +1,24 @@
+// v5.27: crowd-mode sprite cache (render only; no gameplay effect)
+const CDC_CROWD_LIMIT = 60;
+const _cdcSpriteCache = new Map();
+function cdcCrowdSprite(enemy, bodyColor) {
+    const scale = Math.max(1, Math.min(3, Math.round((window.devicePixelRatio || 1) * 2) / 2));
+    const key = enemy.type + '|' + bodyColor + '|' + Math.round(enemy.size) + '|' + (enemy.splitLevel || 0) + '|' + scale;
+    let spr = _cdcSpriteCache.get(key);
+    if (spr) return spr;
+    if (_cdcSpriteCache.size >= 300) _cdcSpriteCache.clear();
+    const side = Math.ceil(enemy.size * 4 * scale);
+    if (!(side > 0)) return null;
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = side;
+    const cctx = canvas.getContext('2d'); if (!cctx) return null;
+    cctx.scale(scale, scale); cctx.translate(side / (2 * scale), side / (2 * scale));
+    const proxy = Object.create(enemy); proxy.facingAngle = 0; proxy.walkPhase = 0;
+    try { enemy.renderBody.call(proxy, cctx, bodyColor); } catch (e) { return null; }
+    spr = { canvas, half: side / 2 / scale };
+    _cdcSpriteCache.set(key, spr);
+    return spr;
+}
+
 /**
  * Enemy Base Class
  * Handles shared movement, HP, and status effects for all enemies.
@@ -791,6 +812,22 @@ class Enemy {
             if (isHit) { ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size); ctx.globalCompositeOperation = 'source-over'; }
             ctx.drawImage(img, -this.size / 2, -this.size / 2, this.size, this.size);
             ctx.restore(); this._renderHealthBarAndAuras(ctx); return;
+        }
+
+        // v5.27: crowd mode - with many enemies on screen draw a cached sprite instead of the full vector body
+        const sc = window.gameScene;
+        if (sc && sc.enemies && sc.enemies.length > CDC_CROWD_LIMIT && !this.isBoss && !this.isDrowning && this.type !== 'crocodile' && this.type !== 'breaker') {
+            const col = isHit ? '#ff0000' : this.color;
+            let spr = this._spr;
+            if (!spr || this._sprC !== col || this._sprS !== this.size || this._sprL !== this.splitLevel) { spr = this._spr = cdcCrowdSprite(this, col); this._sprC = col; this._sprS = this.size; this._sprL = this.splitLevel; }
+            if (spr) {
+                if (!isFlying) { ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'; ctx.beginPath(); ctx.ellipse(this.x, this.y + this.size * 0.45, this.size * 0.4, this.size * 0.12, 0, 0, Math.PI * 2); ctx.fill(); }
+                if (isSlowed) { ctx.fillStyle = 'rgba(140, 215, 255, 0.38)'; ctx.beginPath(); ctx.arc(this.x, this.y + bobY, this.size * 0.8, 0, Math.PI * 2); ctx.fill(); }
+                ctx.save(); ctx.translate(this.x, this.y + bobY);
+                if (this.type === 'speedy' || isFlying) ctx.rotate(this.facingAngle || 0);
+                ctx.drawImage(spr.canvas, -spr.half, -spr.half, spr.half * 2, spr.half * 2);
+                ctx.restore(); this._renderHealthBarAndAuras(ctx); return;
+            }
         }
 
         ctx.save(); ctx.translate(this.x, this.y + bobY);
