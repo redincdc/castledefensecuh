@@ -200,7 +200,7 @@ const GameConfig = {
         Crocodile: { health: 80, speed: 30, size: 28, damage: 6, attackSpeed: 1000, special: 'swim', reward: 1 },
         Flyer: { health: 70, speed: 85, size: 22, damage: 5, attackSpeed: 800, special: 'fly', reward: 1 },
         Splitter: { health: 45, speed: 50, size: 32, damage: 6, attackSpeed: 900, special: 'normal', reward: 1 },
-        Breaker: { health: 400, speed: 38, size: 40, damage: 10, attackSpeed: 1000, special: 'breaker', reward: 5 }
+        Breaker: { health: 400, speed: 27, size: 40, damage: 10, attackSpeed: 1000, special: 'breaker', reward: 5 }
     },
     Castle: {
         health: 100, maxHealth: 100, hpRegenSpeed: 3, attackDamage: 30, attackSpeed: 800, cannonRange: 96, size: 128, roofColor: '#A9A9A9'

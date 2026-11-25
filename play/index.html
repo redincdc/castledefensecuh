@@ -240,7 +240,7 @@
     <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
     <script src="Core.js"></script>
-    <script src="GameConfig.js"></script>
+    <script src="GameConfig.js?v=5.28"></script>
     <script src="TextureManager.js"></script>
     <script src="SoundManager.js?v=5.22"></script>
     <script src="Engine.js?v=5.22"></script>
@@ -274,14 +274,14 @@
     <script src="towers/FlameTower.js"></script>
     <script src="InputManager.js"></script>
     <script src="BalanceAnalytics.js"></script>
-    <script src="LogManager.js?v=5.27"></script>
+    <script src="LogManager.js?v=5.28"></script>
     <script src="HeadlessSimulator.js"></script>
-    <script src="game.js?v=5.27"></script>
+    <script src="game.js?v=5.28"></script>
     <script src="Polish.js?v=5.24"></script>
     <script src="Extras.js?v=5.22"></script>
     <script src="Modes.js?v=5.27"></script>
     <script>
-        window.CDC_VERSION = '5.27';
+        window.CDC_VERSION = '5.28';
         window._cdcCrashSent = false;
         // v5.21: player bug reports / ideas are ALSO copied to FormSubmit. Fire-and-forget: never awaited, every
         // error swallowed, so it can't block or break the Formspree submit or the UI.
@@ -292,6 +292,7 @@
                 var body = {
                     message: payload.message || '', type: payload.type, kind: payload.kind || (isIdea ? 'idea' : 'bug'),
                     level: payload.level, round: payload.round, version: payload.version, device: payload.device,
+                    mode: payload.mode, fps: payload.fps, log: isIdea ? undefined : payload.log,
                     _subject: (isIdea ? 'CDC Idea – L' : 'CDC Player Report – L') + (payload.level || '?'),
                     _captcha: 'false'
                 };
@@ -344,6 +345,9 @@
                 Object.keys(extra).forEach(function(k) {
                     if (k !== 'message' && k !== '_subject' && k !== 'type') payload[k] = extra[k];
                 });
+            }
+            if (typeof window.cdcAttachReportMeta === 'function') {
+                window.cdcAttachReportMeta(payload, window.gameScene);
             }
             window.cdcSendFeedback(payload);
         };

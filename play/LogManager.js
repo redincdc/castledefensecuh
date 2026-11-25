@@ -263,6 +263,44 @@ class LogManager {
         return lines.length > 0 ? lines.join('\n') : `No entries found for ${filter.toUpperCase()}`;
     }
 
+
+    // v5.28: compact, redacted snapshot for crash/bug reports (no personal data)
+    getReportSnapshot(maxEvents) {
+        if (maxEvents == null) maxEvents = 50;
+        try { if (typeof this._flushBatch === 'function') this._flushBatch(); } catch (e) {}
+        const buf = Array.isArray(this.inMemoryLogBuffer) ? this.inMemoryLogBuffer : [];
+        if (!buf.length) return '';
+        const take = Math.max(0, Math.min(maxEvents, buf.length));
+        const start = buf.length - take;
+        const recent = buf.slice(start);
+        const errRe = /\[(ERR|WRN)\]|\b(ERROR|ERR|WARN|WRN)\b/;
+        const extra = [];
+        for (let i = start - 1; i >= 0 && extra.length < 10; i--) {
+            if (errRe.test(String(buf[i]))) extra.push(buf[i]);
+        }
+        extra.reverse();
+        const lines = extra.concat(recent);
+        const emailRe = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+        const tokenRe = /[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}|[A-Fa-f0-9]{32,}/g;
+        const out = [];
+        for (let i = 0; i < lines.length; i++) {
+            let line = String(lines[i] == null ? '' : lines[i]).replace(/\s+$/,'');
+            line = line.trim();
+            if (!line) continue;
+            line = line.replace(emailRe, '[redacted]').replace(tokenRe, '[redacted]');
+            if (line.length > 200) line = line.slice(0, 199) + '\u2026';
+            out.push(line);
+        }
+        if (!out.length) return '';
+        let result = '';
+        for (let i = out.length - 1; i >= 0; i--) {
+            const candidate = result ? (out[i] + '\n' + result) : out[i];
+            if (candidate.length > 4000) break;
+            result = candidate;
+        }
+        return result;
+    }
+
     logWeaponStats(round, stats) {
         this.log(`Rnd ${round} Stats Block:`, "STATS");
         this.log(stats, "STATS");
@@ -270,3 +308,30 @@ class LogManager {
 }
 
 window.logManager = new LogManager();
+
+// v5.28: attach mode, fps, and a short log snapshot to crash/bug payloads
+window.cdcAttachReportMeta = function(payload, scene) {
+    if (!payload || typeof payload !== 'object') payload = {};
+    try {
+        let mode = 'menu';
+        if (scene) {
+            if (scene._cdcPlayMode) mode = scene._cdcPlayMode;
+            else if (scene.selectedLevel === 99) mode = 'endless';
+            else if (scene.selectedLevel) mode = 'worlds';
+            else mode = 'menu';
+        }
+        payload.mode = mode;
+        payload.fps = (scene && typeof scene._fpsEma === 'number' && isFinite(scene._fpsEma)) ? Math.round(scene._fpsEma) : 0;
+        payload.log = '';
+        if (window.logManager && typeof window.logManager.getReportSnapshot === 'function') {
+            const res = window.logManager.getReportSnapshot(50);
+            if (typeof res === 'string') payload.log = res;
+        }
+    } catch (e) {
+        if (payload.mode === undefined) payload.mode = 'menu';
+        if (payload.fps === undefined) payload.fps = 0;
+        if (payload.log === undefined) payload.log = '';
+    }
+    return payload;
+};
+

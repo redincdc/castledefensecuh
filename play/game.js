@@ -669,6 +669,11 @@ class GameScene {
             const unscaledDelta = Math.min(deltaMs / 1000, 0.1);
             const deltaTime = unscaledDelta * this.speedMultiplier;
             this.lastTime = now; this.lastDeltaTime = deltaTime;
+            // v5.28: short EMA of wall-clock FPS for bug/crash reports
+            if (unscaledDelta > 0) {
+                const inst = 1 / unscaledDelta;
+                this._fpsEma = (this._fpsEma == null) ? inst : (this._fpsEma * 0.9 + inst * 0.1);
+            }
 
             // Performance Debugging
             this._frameStart = now;
@@ -3141,6 +3146,7 @@ class GameScene {
             time: new Date().toISOString(),
             device: navigator.userAgent
         };
+        if (typeof window.cdcAttachReportMeta === 'function') return window.cdcAttachReportMeta(payload, this);
         return payload;
     }
 
